@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YumSpot - 맛집을 찾아보자!</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #E3F2FD;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        .header {
+            text-align: center;
+            padding: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            background-color: #90CAF9;
+            color: white;
+        }
+        .header a {
+            color: white;
+            text-decoration: none;
+        }
+        .navbar {
+            background-color: #90CAF9;
+            padding: 15px;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+        }
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin: 0 10px;  /* 간격을 줄였어 */
+            font-size: 18px;
+        }
+        .navbar .auth-links {
+            position: absolute;
+            right: 20px;
+        }
+        .navbar .auth-links a {
+            color: white;
+            font-size: 14px;
+            margin: 0 5px;  /* 간격을 줄였어 */
+        }
+        .hero {
+            text-align: center;
+            padding: 50px;
+        }
+        .hero input {
+            width: 60%;
+            padding: 10px;
+            border: 2px solid #64B5F6;
+            border-radius: 5px;
+        }
+        .reviews {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        .review-row {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .review-row:first-child {
+            justify-content: center; /* 첫 번째 줄은 가운데 정렬 */
+        }
+
+        .review-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            width: 250px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        .form-container {
+            max-width: 400px;
+            margin: 50px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .form-container h2 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-container input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .form-container button {
+            width: 100%;
+            padding: 12px;
+            background-color: #424242;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .form-container .extra-links {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        .form-container .sns-login {
+            margin-top: 30px;
+            text-align: center;
+        }
+        .form-container .sns-login button {
+            background-color: #FEE500;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="home.html">YumSpot - 맛집을 찾아보자!</a>
+    </div>
+    <div class="navbar">
+        <a href="regionreview.html">지역별</a>
+        <a href="foodreview.html">음식</a>
+        <a href="myreview.html">내 리뷰</a>
+        <div class="auth-links">
+            <a href="login.html" class="login">로그인</a>
+            <a href="signup.html" class="signup">회원가입</a>
+        </div>
+    </div>
+
+    <!-- 로그인 폼 -->
+    <!-- 로그인 폼 -->
+    <div class="form-container">
+        <h2>로그인</h2>
+        <input type="text" id="username" placeholder="아이디">
+        <input type="password" id="password" placeholder="비밀번호">
+
+        <button onclick="login()">로그인</button>
+
+        <!-- 👇 비밀번호 찾기 추가 -->
+        <div style="margin-top: 15px; text-align: center;">
+            <a href="findpassword.html" style="color: #424242; font-size: 14px; text-decoration: underline;">비밀번호 찾기</a>
+        </div>
+
+        <div style="text-align:center; margin: 30px 0; border: 1px solid #eee; padding: 20px;">
+            <strong>아직 회원이 아니신가요?</strong>
+            <br><br>
+            <a href="signup.html">
+                <button style="width: auto; background: white; color: black; border: 1px solid #aaa;">회원가입</button>
+            </a>
+        </div>
+    </div>
+
+    <script>
+    function login() {
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+
+        fetch("http://localhost:3000/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password })
+        })
+        .then(res => res.text())
+        .then(msg => {
+            alert(msg);
+            if (msg === "로그인 성공") {
+                window.location.href = "home.html";
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("로그인 중 오류 발생");
+        });
+    }
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YumSpot - 내 리뷰</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #E3F2FD;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        .header {
+            text-align: center;
+            padding: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            background-color: #90CAF9;
+            color: white;
+        }
+        .header a {
+            color: white;
+            text-decoration: none;
+        }
+        .navbar {
+            background-color: #90CAF9;
+            padding: 15px;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+        }
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin: 0 10px;
+            font-size: 18px;
+        }
+        .navbar .auth-links {
+            position: absolute;
+            right: 20px;
+        }
+        .navbar .auth-links a {
+            color: white;
+            font-size: 14px;
+            margin: 0 5px;
+        }
+        .reviews {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin-top: 30px;
+            text-align: center;
+        }
+        .review-row {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .review-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            width: 250px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            cursor: pointer;
+        }
+        .review-card:hover {
+            background-color: #f1f1f1;
+        }
+        .review-detail {
+            display: none;
+            margin-top: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+        .review-detail img {
+            width: 100%;
+            max-height: 300px;
+            object-fit: cover;
+            margin-top: 10px;
+        }
+        .add-review-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background-color: #0f7bd3;
+            color: white;
+            font-size: 36px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            z-index: 999;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="home.html">YumSpot - 맛집을 찾아보자!</a>
+    </div>
+    <div class="navbar">
+        <a href="regionreview.html">지역별</a>
+        <a href="foodreview.html">음식</a>
+        <a href="myreview.html">내 리뷰</a>
+        <div class="auth-links">
+            <a href="login.html" class="login">로그인</a>
+            <a href="signup.html" class="signup">회원가입</a>
+        </div>
+    </div>
+
+    
+    <div class="reviews" id="reviewSection">
+        <h2>내 리뷰</h2>
+        <div class="review-row" id="reviewRow">
+            <!-- 내 리뷰가 여기에 동적으로 표시됩니다. -->
+        </div>
+    </div>
+
+    <!-- + 버튼 -->
+    <div class="add-review-button">
+        <a href="plusreviewpage.html" style="color: white; text-decoration: none;">+</a>
+    </div>
+
+    <script>
+        // 내 리뷰 목록 표시
+        function showMyReviews(userId) {
+            fetch('/my-reviews')
+                .then(res => res.json())
+                .then(reviews => {
+                    const reviewRow = document.getElementById("reviewRow");
+                    reviewRow.innerHTML = '';
+                    reviews.forEach((review, index) => {
+                        const reviewCard = document.createElement("div");
+                        reviewCard.classList.add("review-card");
+                        reviewCard.innerHTML = `
+                            <h3>${review.title}</h3>
+                            <p>별점: ${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</p>
+                            <p>${review.date}</p>
+                            <div class="review-detail" id="reviewDetail${index}">
+                                <h4>식당명: ${review.restaurant_name}</h4>
+                                <p>주소: ${review.address}</p>
+                                <p>내용: ${review.content}</p>
+                                <img src="${review.image_url}" alt="리뷰 이미지">
+                            </div>
+                        `;
+                        reviewCard.onclick = function () {
+                            const reviewDetail = document.getElementById(`reviewDetail${index}`);
+                            reviewDetail.style.display = reviewDetail.style.display === 'none' || reviewDetail.style.display === '' ? 'block' : 'none';
+                        };
+                        reviewRow.appendChild(reviewCard);
+                    });
+                })
+                .catch(err => {
+                    console.error("내 리뷰 불러오기 실패:", err);
+                });
+        }
+
+
+        // 페이지 로딩 시 내 리뷰 보여주기
+        /*window.onload = function () {
+            fetch('/check-auth')
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.loggedIn) {
+                        document.getElementById("loginMsg").style.display = "block";
+                        document.getElementById("reviewSection").style.display = "none";
+                        document.querySelector(".add-review-button").style.display = "none";
+                    } else {
+                        showMyReviews(data.userId); // 로그인된 사용자 ID 전달
+                    }
+                });
+        };*/
+    </script>
+    <script>
+    fetch('/check-auth')
+    .then(res => res.json())
+    .then(data => {
+        if (data.loggedIn) {
+        const authLinks = document.querySelector('.auth-links');
+        authLinks.innerHTML = `
+            <div style="position: relative;">
+            <button id="mypageBtn" style="background: none; border: none; color: white; cursor: pointer;">마이페이지 ▾</button>
+            <div id="mypageDropdown" style="display:none; position:absolute; right:0; background:white; color:black; padding:10px; border-radius:5px;">
+                <a href="editprofile.html">내 정보 수정</a><br>
+                <a href="#" onclick="logout()">로그아웃</a>
+            </div>
+            </div>
+        `;
+
+        document.getElementById("mypageBtn").addEventListener("click", () => {
+            const dropdown = document.getElementById("mypageDropdown");
+            dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
+        });
+        }
+    });
+
+    function logout() {
+    fetch("/logout")
+        .then(() => window.location.href = "home.html");
+    }
+    </script>
+    <script>
+    fetch('/check-auth')
+    .then(res => res.json())
+    .then(data => {
+        if (!data.loggedIn) {
+        alert("로그인 후 이용 가능합니다.");
+        window.location.href = "login.html";
+        } else {
+        showMyReviews();
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert("오류가 발생했습니다. 다시 시도해주세요.");
+        window.location.href = "login.html";
+    });
+    </script>
+
+</body>
+</html>

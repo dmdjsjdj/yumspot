@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>리뷰 상세</title>
+    <style>
+        /* 기존 home.html 디자인과 동일한 스타일 */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #E3F2FD;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        .header {
+            text-align: center;
+            padding: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            background-color: #90CAF9;
+            color: white;
+        }
+        .header a {
+            color: white;
+            text-decoration: none;
+        }
+        .navbar {
+            background-color: #90CAF9;
+            padding: 15px;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+        }
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin: 0 10px;
+            font-size: 18px;
+        }
+        .container {
+            padding: 30px;
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            margin-top: 40px;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="home.html">YumSpot - 맛집을 찾아보자!</a>
+    </div>
+    <div class="navbar">
+        <a href="regionreview.html">지역별</a>
+        <a href="foodreview.html">음식</a>
+        <a href="myreview.html">내 리뷰</a>
+    </div>
+
+    <div class="container">
+        <h2 id="reviewTitle">로딩 중...</h2>
+        <p id="reviewDate"></p>
+        <p id="reviewRestaurant"></p>
+        <p id="reviewAddress"></p>
+        <p id="reviewRating"></p>
+        <p id="reviewContent"></p>
+        <img id="reviewImage" src="" alt="리뷰 이미지" />
+    </div>
+
+    <script>
+        function getReviewIdFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get("id");
+        }
+
+        async function fetchReviewDetail() {
+            const reviewId = getReviewIdFromURL();
+            const res = await fetch(`/get-review/${reviewId}`);
+            if (!res.ok) {
+                document.getElementById("reviewTitle").innerText = "리뷰를 불러올 수 없습니다.";
+                return;
+            }
+            const review = await res.json();
+
+            document.getElementById("reviewTitle").innerText = review.title;
+            document.getElementById("reviewDate").innerText = `날짜: ${review.date}`;
+            document.getElementById("reviewRestaurant").innerText = `식당명: ${review.restaurant_name}`;
+            document.getElementById("reviewAddress").innerText = `주소: ${review.address}`;
+            document.getElementById("reviewRating").innerText = `별점: ${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}`;
+            document.getElementById("reviewContent").innerText = `내용: ${review.content}`;
+            document.getElementById("reviewImage").src = review.image_url;
+        }
+
+        window.onload = fetchReviewDetail;
+    </script>
+       <script>
+    fetch('/check-auth')
+    .then(res => res.json())
+    .then(data => {
+        if (data.loggedIn) {
+        const authLinks = document.querySelector('.auth-links');
+        authLinks.innerHTML = `
+            <div style="position: relative;">
+            <button id="mypageBtn" style="background: none; border: none; color: white; cursor: pointer;">마이페이지 ▾</button>
+            <div id="mypageDropdown" style="display:none; position:absolute; right:0; background:white; color:black; padding:10px; border-radius:5px;">
+                <a href="editprofile.html">내 정보 수정</a><br>
+                <a href="#" onclick="logout()">로그아웃</a>
+            </div>
+            </div>
+        `;
+
+        document.getElementById("mypageBtn").addEventListener("click", () => {
+            const dropdown = document.getElementById("mypageDropdown");
+            dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
+        });
+        }
+    });
+
+    function logout() {
+    fetch("/logout")
+        .then(() => window.location.href = "home.html");
+    }
+    </script>
+</body>
+</html>

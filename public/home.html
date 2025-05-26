@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YumSpot - 맛집을 찾아보자!</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #E3F2FD;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        .header {
+            text-align: center;
+            padding: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            background-color: #90CAF9;
+            color: white;
+        }
+        .header a {
+            color: white;
+            text-decoration: none;
+        }
+        .navbar {
+            background-color: #90CAF9;
+            padding: 15px;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+        }
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin: 0 10px;  /* 간격을 줄였어 */
+            font-size: 18px;
+        }
+        .navbar .auth-links {
+            position: absolute;
+            right: 20px;
+        }
+        .navbar .auth-links a {
+            color: white;
+            font-size: 14px;
+            margin: 0 5px;  /* 간격을 줄였어 */
+        }
+        .hero {
+            text-align: center;
+            padding: 50px;
+        }
+        .hero input {
+            width: 60%;
+            padding: 10px;
+            border: 2px solid #64B5F6;
+            border-radius: 5px;
+        }
+        .reviews {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        .review-row {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .review-row:first-child {
+            justify-content: center; /* 첫 번째 줄은 가운데 정렬 */
+        }
+
+        .review-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            width: 250px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="home.html">YumSpot - 맛집을 찾아보자!</a>
+    </div>
+    <div class="navbar">
+        <a href="regionreview.html">지역별</a>
+        <a href="foodreview.html">음식</a>
+        <a href="myreview.html">내 리뷰</a>
+        <div class="auth-links">
+            <a href="login.html" class="login">로그인</a>
+            <a href="signup.html" class="signup">회원가입</a>
+        </div>
+    </div>
+
+    <div class="reviews">
+        <h2>최근 리뷰</h2>
+        <div id="reviewRow" class="review-row"></div> <!-- 한 줄에 모든 리뷰 표시 -->
+    </div>
+
+    <script src="categoryLists.js"></script>
+    
+    <script>
+        async function showRecentReviews() {
+            const reviewRow = document.getElementById("reviewRow");
+            reviewRow.innerHTML = ''; // 초기화
+    
+            try {
+                const res = await fetch('/api/reviews/recent');
+                if (!res.ok) throw new Error("리뷰를 불러올 수 없음");
+    
+                const reviews = await res.json();
+    
+                reviews.forEach((review) => {
+                    const reviewCard = document.createElement("div");
+                    reviewCard.classList.add("review-card");
+
+                    const foodText = review.foodcategory;
+    
+                    reviewCard.innerHTML = `
+                        <h3>${review.title}</h3>
+                        <p>별점: ${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</p>
+                        <p>카테고리: ${foodText}</p>
+
+                    `;
+    
+                    reviewCard.addEventListener("click", () => {
+                        window.location.href = `reviewdetail.html?id=${review.id}`;
+                    });
+    
+                    reviewRow.appendChild(reviewCard);
+                });
+    
+            } catch (err) {
+                console.error(err);
+                reviewRow.innerHTML = '<p>리뷰를 불러오지 못했습니다.</p>';
+            }
+        }
+    
+        window.onload = showRecentReviews;
+    </script>
+    
+    <script>
+    fetch('/check-auth')
+    .then(res => res.json())
+    .then(data => {
+        if (data.loggedIn) {
+        const authLinks = document.querySelector('.auth-links');
+        authLinks.innerHTML = `
+            <div style="position: relative;">
+            <button id="mypageBtn" style="background: none; border: none; color: white; cursor: pointer;">마이페이지 ▾</button>
+            <div id="mypageDropdown" style="display:none; position:absolute; right:0; background:white; color:black; padding:10px; border-radius:5px;">
+                <a href="editprofile.html">내 정보 수정</a><br>
+                <a href="#" onclick="logout()">로그아웃</a>
+            </div>
+            </div>
+        `;
+
+        document.getElementById("mypageBtn").addEventListener("click", () => {
+            const dropdown = document.getElementById("mypageDropdown");
+            dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
+        });
+        }
+    });
+
+    function logout() {
+    fetch("/logout")
+        .then(() => window.location.href = "home.html");
+    }
+    </script>
+
+</body>
+</html>

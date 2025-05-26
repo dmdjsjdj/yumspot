@@ -172,13 +172,15 @@ const upload = multer({ storage });
 // MariaDB 연결 설정
 const db = mysql.createPool({
   host: process.env.DB_HOST,
-  port: process.env.DB_PORT || 3306,
+  //port: process.env.DB_PORT || 3306,
   user: process.env.DB_USER,
   password: process.env.DB_PASS,
   database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  connectTimeout: 10000, // 10초 제한
+  idleTimeout: 60000     // 60초 후 유휴 커넥션 정리
 });
 
 // 데이터베이스 연결 확인
@@ -290,4 +292,4 @@ setInterval(async () => {
       console.error('DB 재연결 실패:', reconnectErr);
     }
   }
-}, 30000); // 30초마다 확인 (너무 자주하면 부하 생김)
+}, 20000); // 30초마다 확인 (너무 자주하면 부하 생김)

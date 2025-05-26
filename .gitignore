@@ -7,3 +7,4 @@ node_modules
 # 기타 임시 파일
 .DS_Store
 *.log
+dist/

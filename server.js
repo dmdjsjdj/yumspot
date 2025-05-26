@@ -1,5 +1,5 @@
 const express = require('express');
-const mysql = require('mysql2');
+const mysql = require('mysql2/promise');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 
@@ -19,6 +19,11 @@ app.use(cookieParser());
 const cloudinary = require('cloudinary').v2;
 const fs = require('fs');
 
+console.log('DB_HOST:', process.env.DB_HOST);
+
+
+require('dotenv').config();
+
 // 정적 파일 제공 (HTML, CSS, JS)
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -26,116 +31,91 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'home.html'));
 });
-
-app.get('/get-reviews', (req, res) => {
-    db.query('SELECT * FROM reviews', (error, results) => {  // ✅ db 사용
-        if (error) {
-            console.error('리뷰 불러오기 오류:', error);
-            res.status(500).send('서버 오류');
-        } if (results.length === 0) {
-            res.status(404).send('리뷰를 찾을 수 없습니다.');
-        } else {
-            res.json(results[0]); // 하나만 반환
-        }
-    });
-});
-app.get('/get-review/:id', (req, res) => {
-    const reviewId = req.params.id;
-    const sql = 'SELECT * FROM reviews WHERE id = ?';
-    db.query(sql, [reviewId], (err, results) => {
-        if (err) {
-            console.error('리뷰 조회 오류:', err);
-            return res.status(500).send('서버 오류');
-        }
+//리뷰 받아오기기
+app.get('/get-reviews', async (req, res) => {
+    try {
+        const [results] = await db.query('SELECT * FROM reviews');
         if (results.length === 0) {
-            return res.status(404).send('리뷰를 찾을 수 없음');
+            return res.status(404).send('리뷰를 찾을 수 없습니다.');
         }
-        res.json(results[0]);
-    });
+        res.json(results[0]); // 하나만 반환
+    } catch (error) {
+        console.error('리뷰 불러오기 오류:', error);
+        res.status(500).send('서버 오류');
+    }
 });
 
-
-app.get('/api/reviews/recent', (req, res) => {
-    const sql = "SELECT id, title, rating, foodcategory, regionNames FROM reviews ORDER BY date DESC LIMIT 3";
-
-    db.query(sql, (err, results) => {
-        if (err) {
-            console.error("리뷰 가져오기 실패:", err);
-            return res.status(500).send("서버 오류");
-        }
+app.get('/get-review/:id', async (req, res) => {
+    const reviewId = req.params.id;
+    try {
+        const [results] = await db.query('SELECT * FROM reviews WHERE id = ?', [reviewId]);
+        if (results.length === 0) return res.status(404).send('리뷰를 찾을 수 없음');
+        res.json(results[0]);
+    } catch (err) {
+        console.error('리뷰 조회 오류:', err);
+        res.status(500).send('서버 오류');
+    }
+});
+//최근 리뷰 3개 불러오기
+app.get('/api/reviews/recent', async (req, res) => {
+    try {
+        const [results] = await db.query("SELECT id, title, rating, foodcategory, regionNames FROM reviews ORDER BY date DESC LIMIT 3");
         res.json(results);
-    });
+    } catch (err) {
+        console.error("리뷰 가져오기 실패:", err);
+        res.status(500).send("서버 오류");
+    }
 });
 
 app.post('/signup', async (req, res) => {
     const { username, password, nickname } = req.body;
-    if (!username || !password || !nickname) {
-        return res.status(400).send("모든 필드를 입력해주세요");
-    }
+    if (!username || !password || !nickname) return res.status(400).send("모든 필드를 입력해주세요");
 
     try {
-        const hashedPassword = await bcrypt.hash(password, 10); // saltRounds = 10
-        const sql = 'INSERT INTO users (username, password, nickname) VALUES (?, ?, ?)';
-        db.query(sql, [username, hashedPassword, nickname], (err, result) => {
-            if (err) {
-                console.error('회원가입 오류:', err);
-                return res.status(500).send('서버 오류');
-            }
-            res.send('회원가입 완료!');
-        });
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await db.query('INSERT INTO users (username, password, nickname) VALUES (?, ?, ?)', [username, hashedPassword, nickname]);
+        res.send('회원가입 완료!');
     } catch (err) {
-        console.error('비밀번호 암호화 오류:', err);
-        res.status(500).send('암호화 오류');
+        console.error('회원가입 오류:', err);
+        res.status(500).send('서버 오류');
     }
 });
 
-app.post('/login', (req, res) => {
-  const { username, password } = req.body;
-  db.query("SELECT * FROM users WHERE username = ?", [username], (err, results) => {
-    if (err) return res.status(500).send("서버 오류");
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+    try {
+        const [results] = await db.query("SELECT * FROM users WHERE username = ?", [username]);
+        if (results.length === 0) return res.status(400).send("아이디 없음");
 
-    if (results.length === 0) return res.status(400).send("아이디 없음");
+        const user = results[0];
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) return res.status(400).send("비밀번호 틀림");
 
-    const user = results[0];
-    const bcrypt = require('bcrypt');
-    bcrypt.compare(password, user.password, (err, result) => {
-      if (!result) return res.status(400).send("비밀번호 틀림");
-
-      const token = jwt.sign({ id: user.id, username: user.username }, 'your_jwt_secret', { expiresIn: '1h' });
-      res.cookie('token', token, { httpOnly: true });
-      res.send("로그인 성공");
-    });
-  });
+        const token = jwt.sign({ id: user.id, username: user.username }, 'your_jwt_secret', { expiresIn: '1h' });
+        res.cookie('token', token, { httpOnly: true });
+        res.send("로그인 성공");
+    } catch (err) {
+        console.error('로그인 오류:', err);
+        res.status(500).send("서버 오류");
+    }
 });
 
-// 비밀번호 찾기: 아이디 + 닉네임 → 임시 비밀번호 발급
+// 비밀번호 찾기
 app.post('/find-password', async (req, res) => {
-  const { username, nickname } = req.body;
-  const findUserQuery = 'SELECT * FROM users WHERE username = ? AND nickname = ?';
+    const { username, nickname } = req.body;
+    try {
+        const [results] = await db.query('SELECT * FROM users WHERE username = ? AND nickname = ?', [username, nickname]);
+        if (results.length === 0) return res.status(404).send("일치하는 사용자가 없습니다.");
 
-  db.query(findUserQuery, [username, nickname], async (err, results) => {
-    if (err || results.length === 0) {
-      return res.status(404).send("일치하는 사용자가 없습니다.");
+        const tempPassword = Math.random().toString(36).slice(2, 10);
+        const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+        await db.query('UPDATE users SET password = ? WHERE username = ?', [hashedPassword, username]);
+        res.send(tempPassword);
+    } catch (err) {
+        console.error("비밀번호 찾기 오류:", err);
+        res.status(500).send("서버 오류");
     }
-
-    // 임시 비밀번호 생성
-    const tempPassword = Math.random().toString(36).slice(2, 10); // 예: "af8x4k9z"
-
-    // 해싱
-    const hashedPassword = await bcrypt.hash(tempPassword, 10);
-
-    // 업데이트
-    const updateQuery = 'UPDATE users SET password = ? WHERE username = ?';
-    db.query(updateQuery, [hashedPassword, username], (err) => {
-      if (err) {
-        console.error("비밀번호 업데이트 오류:", err);
-        return res.status(500).send("비밀번호 갱신 실패");
-      }
-
-      res.send(tempPassword);
-
-    });
-  });
 });
 
 
@@ -153,6 +133,8 @@ app.get('/logout', (req, res) => {
   res.clearCookie('token');
   res.send("로그아웃 성공");
 });
+
+//사용자확인&토큰확인
 app.get('/check-auth', (req, res) => {
   const token = req.cookies.token;
   if (!token) return res.json({ loggedIn: false });
@@ -162,14 +144,17 @@ app.get('/check-auth', (req, res) => {
     res.json({ loggedIn: true, user: decoded });
   });
 });
-app.post('/edit-profile', verifyToken, (req, res) => {
-  const { newPassword, nickname } = req.body;
-  const hashed = bcrypt.hashSync(newPassword, 10);
 
-  db.query("UPDATE users SET password = ?, nickname = ? WHERE id = ?", [hashed, nickname, req.user.id], err => {
-    if (err) return res.status(500).send("업데이트 실패");
-    res.send("정보 수정 완료");
-  });
+app.post('/edit-profile', verifyToken, async (req, res) => {
+    const { newPassword, nickname } = req.body;
+    try {
+        const hashed = await bcrypt.hash(newPassword, 10);
+        await db.query("UPDATE users SET password = ?, nickname = ? WHERE id = ?", [hashed, nickname, req.user.id]);
+        res.send("정보 수정 완료");
+    } catch (err) {
+        console.error("프로필 수정 오류:", err);
+        res.status(500).send("업데이트 실패");
+    }
 });
 
 
@@ -185,26 +170,36 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // MariaDB 연결 설정
-const db = mysql.createConnection({
-    host: '127.0.0.1',  // MariaDB 서버 주소 (로컬)
-    user: 'root',    // DB 사용자명
-    password: 'jinor1128',  // DB 비밀번호
-    database: 'yumspot_db' // 사용할 데이터베이스
+const db = mysql.createPool({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT || 3306,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASS,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
 // 데이터베이스 연결 확인
-db.connect(err => {
-    if (err) {
-        console.error('MariaDB 연결 실패:', err);
-        return;
+db.getConnection((err, connection) => {
+    // 개발 환경에서는 DB 연결 스킵 (로컬 테스트를 위해)
+    if (process.env.NODE_ENV !== 'development') {
+        db.getConnection((err, connection) => {
+            if (err) {
+                console.error('MariaDB 연결 실패:', err);
+                return;
+            }
+            console.log('MariaDB 연결 성공');
+            connection.release();
+        });
+    } else {
+        console.log('개발 환경 - DB 연결 건너뜀');
     }
-    console.log('MariaDB 연결 성공');
 });
-
+module.exports = db;
 // 리뷰 저장 API 엔드포인트
-app.post('/submit-review', upload.single('reviewImage'), async (req, res) => {
-    if (!req.session.userId) return res.status(401).send("로그인 필요");
-
+app.post('/submit-review', upload.single('reviewImage'), verifyToken, async (req, res) => {
     const {
         reviewTitle, reviewDate, restaurantName,
         restaurantAddress, rating, reviewContent,
@@ -230,18 +225,19 @@ app.post('/submit-review', upload.single('reviewImage'), async (req, res) => {
         (user_id, title, date, restaurant_name, address, rating, content, image_url, foodcategory, regionNames)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-    db.query(sql, [
-        req.session.userId, reviewTitle, reviewDate, restaurantName,
-        restaurantAddress, rating, reviewContent, imageUrl,
-        foodCategory, regionCategory
-    ], (err, result) => {
-        if (err) {
-            console.error('리뷰 저장 오류:', err);
-            return res.status(500).send("저장 실패");
-        }
+    try {
+        await db.query(sql, [
+            req.user.id, reviewTitle, reviewDate, restaurantName,
+            restaurantAddress, rating, reviewContent, imageUrl,
+            foodCategory, regionCategory
+        ]);
         res.send("리뷰 저장 완료!");
-    });
+    } catch (err) {
+        console.error('리뷰 저장 오류:', err);
+        res.status(500).send("저장 실패");
+    }
 });
+
 //클라우디네리 이미지 저장
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -250,50 +246,48 @@ cloudinary.config({
 });
 
 //리뷰 불러오기
-app.get('/review/:id', (req, res) => {
-    const reviewId = req.params.id;
-    const sql = 'SELECT * FROM reviews WHERE id = ?';
-
-    db.query(sql, [reviewId], (err, results) => {
-        if (err) {
-            console.error('리뷰 조회 오류:', err);
-            res.status(500).send('서버 오류');
-        } else if (results.length === 0) {
-            res.status(404).send('리뷰 없음');
-        } else {
-            res.json(results[0]);
-        }
-    });
+app.get('/review/:id', async (req, res) => {
+    try {
+        const [results] = await db.query('SELECT * FROM reviews WHERE id = ?', [req.params.id]);
+        if (results.length === 0) return res.status(404).send('리뷰 없음');
+        res.json(results[0]);
+    } catch (err) {
+        console.error('리뷰 조회 오류:', err);
+        res.status(500).send('서버 오류');
+    }
 });
 //내 리뷰 불러오기
-app.get("/my-reviews", (req, res) => {
-    if (!req.session || !req.session.user) {
-        return res.status(401).json({ message: "로그인이 필요합니다" });
-    }
-
-    const userId = req.session.user.userId;
-    const sql = "SELECT * FROM reviews WHERE user_id = ?";
-    db.query(sql, [userId], (err, results) => {
-        if (err) {
-            console.error("리뷰 조회 오류:", err);
-            return res.status(500).send("서버 오류");
-        }
+app.get("/my-reviews", verifyToken, async (req, res) => {
+    try {
+        const [results] = await db.query("SELECT * FROM reviews WHERE user_id = ?", [req.user.id]);
         res.json(results);
-    });
+    } catch (err) {
+        console.error("리뷰 조회 오류:", err);
+        res.status(500).send("서버 오류");
+    }
 });
 
 // 서버 실행
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`서버 실행 중: http://localhost:${PORT}`);
 });
 
-setInterval(() => {
-    db.ping((err) => {
-        if (err) {
-            console.error('MariaDB 연결이 끊어졌습니다. 다시 연결 시도 중...');
-            db.connect();
-        }
-    });
-}, 60000); // 60초마다 연결 확인
+// 연결 유지를 위한 ping + 재연결 로직
+setInterval(async () => {
+  try {
+    const [rows] = await db.query('SELECT 1');
+    // console.log('DB keep-alive success');
+  } catch (err) {
+    console.error('DB 연결 끊김! 재연결 시도 중...');
 
+    try {
+      // 새로운 커넥션 강제로 생성해서 pool 내부 복구 유도
+      const connection = await db.getConnection();
+      console.log('DB 재연결 성공');
+      connection.release();
+    } catch (reconnectErr) {
+      console.error('DB 재연결 실패:', reconnectErr);
+    }
+  }
+}, 30000); // 30초마다 확인 (너무 자주하면 부하 생김)

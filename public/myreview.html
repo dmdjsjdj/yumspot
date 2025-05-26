@@ -135,7 +135,7 @@
     <script>
         // 내 리뷰 목록 표시
         function showMyReviews(userId) {
-            fetch('/my-reviews')
+            fetch(`/my-reviews?userId=${userId}`)
                 .then(res => res.json())
                 .then(reviews => {
                     const reviewRow = document.getElementById("reviewRow");
@@ -184,49 +184,43 @@
     </script>
     <script>
     fetch('/check-auth')
-    .then(res => res.json())
-    .then(data => {
-        if (data.loggedIn) {
-        const authLinks = document.querySelector('.auth-links');
-        authLinks.innerHTML = `
-            <div style="position: relative;">
-            <button id="mypageBtn" style="background: none; border: none; color: white; cursor: pointer;">마이페이지 ▾</button>
-            <div id="mypageDropdown" style="display:none; position:absolute; right:0; background:white; color:black; padding:10px; border-radius:5px;">
-                <a href="editprofile.html">내 정보 수정</a><br>
-                <a href="#" onclick="logout()">로그아웃</a>
-            </div>
-            </div>
-        `;
+        .then(res => res.json())
+        .then(data => {
+            if (data.loggedIn) {
+                alert("로그인 후 이용 가능합니다.");
+                window.location.href = "login.html";
+                return;
+            }
+            // 로그인한 사용자 ID로 리뷰 불러오기
+            showMyReviews(data.user.id); 
 
-        document.getElementById("mypageBtn").addEventListener("click", () => {
-            const dropdown = document.getElementById("mypageDropdown");
-            dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
+            // 상단 로그인 영역 -> 마이페이지로 변경
+            const authLinks = document.querySelector('.auth-links');
+            authLinks.innerHTML = `
+                <div style="position: relative;">
+                    <button id="mypageBtn" style="background: none; border: none; color: white; cursor: pointer;">마이페이지 ▾</button>
+                    <div id="mypageDropdown" style="display:none; position:absolute; right:0; background:white; color:black; padding:10px; border-radius:5px;">
+                        <a href="mypage.html" style="color: black; text-decoration: none;">내 정보 확인</a><br>
+                        <a href="#" onclick="logout()" style="color: black; text-decoration: none;">로그아웃</a>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById("mypageBtn").addEventListener("click", () => {
+                const dropdown = document.getElementById("mypageDropdown");
+                dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
+            });
+        })
+        .catch(err => {
+            console.error(err);
+            alert("오류가 발생했습니다. 다시 시도해주세요.");
+            window.location.href = "login.html";
         });
-        }
-    });
 
     function logout() {
-    fetch("/logout")
-        .then(() => window.location.href = "home.html");
+        fetch("/logout")
+            .then(() => window.location.href = "home.html");
     }
     </script>
-    <script>
-    fetch('/check-auth')
-    .then(res => res.json())
-    .then(data => {
-        if (!data.loggedIn) {
-        alert("로그인 후 이용 가능합니다.");
-        window.location.href = "login.html";
-        } else {
-        showMyReviews();
-        }
-    })
-    .catch(err => {
-        console.error(err);
-        alert("오류가 발생했습니다. 다시 시도해주세요.");
-        window.location.href = "login.html";
-    });
-    </script>
-
 </body>
 </html>

@@ -97,81 +97,57 @@
         </div>
     </div>
 
-    <div class="reviews">
-        <h2>최근 리뷰</h2>
-        <div id="reviewRow" class="review-row"></div> <!-- 한 줄에 모든 리뷰 표시 -->
+    <div id="userInfo" style="padding: 30px; text-align: center;">
+        <h2>내 정보</h2>
+        <p id="username"></p>
+        <p id="nickname"></p>
+        <p id="createdAt"></p>
     </div>
 
-    <script src="categoryLists.js"></script>
-    
     <script>
-        async function showRecentReviews() {
-            const reviewRow = document.getElementById("reviewRow");
-            reviewRow.innerHTML = ''; // 초기화
-    
-            try {
-                const res = await fetch('/api/reviews/recent');
-                if (!res.ok) throw new Error("리뷰를 불러올 수 없음");
-    
-                const reviews = await res.json();
-    
-                reviews.forEach((review) => {
-                    const reviewCard = document.createElement("div");
-                    reviewCard.classList.add("review-card");
-
-                    const foodText = review.foodcategory;
-    
-                    reviewCard.innerHTML = `
-                        <h3>${review.title}</h3>
-                        <p>별점: ${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</p>
-                        <p>카테고리: ${foodText}</p>
-
-                    `;
-    
-                    reviewCard.addEventListener("click", () => {
-                        window.location.href = `reviewdetail.html?id=${review.id}`;
-                    });
-    
-                    reviewRow.appendChild(reviewCard);
-                });
-    
-            } catch (err) {
-                console.error(err);
-                reviewRow.innerHTML = '<p>리뷰를 불러오지 못했습니다.</p>';
-            }
+        function logout() {
+        fetch("/logout")
+            .then(() => {
+            alert("로그아웃 되었습니다.");
+            window.location.href = "home.html";
+            });
         }
-    
-        window.onload = showRecentReviews;
-    </script>
-    
-    <script>
-    fetch('/check-auth')
-    .then(res => res.json())
-    .then(data => {
-        if (data.loggedIn) {
-        const authLinks = document.querySelector('.auth-links');
-        authLinks.innerHTML = `
-            <div style="position: relative;">
+
+        fetch('/check-auth')
+        .then(res => res.json())
+        .then(data => {
+            if (!data.loggedIn) {
+                alert("로그인이 필요합니다");
+                window.location.href = "login.html";
+            } 
+            else {
+                const user = data.user;
+
+                // 유저 정보가 이런 구조라고 가정 (백엔드에서 보내는 형태)
+                // 예: { id: 3, username: "hong123", nickname: "홍길동", createdAt: "2024-05-01" }
+
+                document.getElementById("username").textContent = `아이디: ${user.username}`;
+                document.getElementById("nickname").textContent = `닉네임: ${user.nickname || user.username}`;
+                document.getElementById("createdAt").textContent = `가입일: ${new Date(user.createdAt).toLocaleDateString('ko-KR')}`;
+
+            // 🔽 로그인 상태일 때 마이페이지 드롭다운 메뉴 추가
+            const authLinks = document.querySelector(".auth-links");
+            authLinks.innerHTML = `
+                <div style="position: relative;">
                 <button id="mypageBtn" style="background: none; border: none; color: white; cursor: pointer;">마이페이지 ▾</button>
                 <div id="mypageDropdown" style="display:none; position:absolute; right:0; background:white; color:black; padding:10px; border-radius:5px;">
-                    <a href="mypage.html" style="color: black; text-decoration: none;">내 정보 확인</a><br>
+                    <a href="mypage.html" style="color: black; text-decoration: none;">내 정보 확인</a>
                     <a href="#" onclick="logout()" style="color: black; text-decoration: none;">로그아웃</a>
                 </div>
-            </div>
-        `;
+                </div>
+            `;
 
-        document.getElementById("mypageBtn").addEventListener("click", () => {
-            const dropdown = document.getElementById("mypageDropdown");
-            dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
+            document.getElementById("mypageBtn").addEventListener("click", () => {
+                const dropdown = document.getElementById("mypageDropdown");
+                dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
+            });
+            }
         });
-        }
-    });
-
-    function logout() {
-    fetch("/logout")
-        .then(() => window.location.href = "home.html");
-    }
     </script>
-
 </body>
 </html>

@@ -140,15 +140,15 @@
     .then(data => {
         if (data.loggedIn) {
             const authLinks = document.querySelector('.auth-links');
-            authLinks.innerHTML = `
-                <div style="position: relative;">
+        authLinks.innerHTML = `
+            <div style="position: relative;">
                 <button id="mypageBtn" style="background: none; border: none; color: white; cursor: pointer;">마이페이지 ▾</button>
                 <div id="mypageDropdown" style="display:none; position:absolute; right:0; background:white; color:black; padding:10px; border-radius:5px;">
-                    <a href="editprofile.html">내 정보 수정</a><br>
-                    <a href="#" onclick="logout()">로그아웃</a>
+                    <a href="mypage.html" style="color: black; text-decoration: none;">내 정보 확인</a><br>
+                    <a href="#" onclick="logout()" style="color: black; text-decoration: none;">로그아웃</a>
                 </div>
-                </div>
-            `;
+            </div>
+        `;
 
             document.getElementById("mypageBtn").addEventListener("click", () => {
                 const dropdown = document.getElementById("mypageDropdown");

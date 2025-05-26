@@ -1,0 +1,9 @@
+# 환경 변수 파일
+.env
+
+# node_modules 폴더 무시
+node_modules
+
+# 기타 임시 파일
+.DS_Store
+*.log

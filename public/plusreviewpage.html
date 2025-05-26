@@ -164,7 +164,7 @@
                 reviewImageUrl: imageUrl  // URL만 백엔드로 보냄
             };
 
-            fetch('http://localhost:3000/submit-review', {
+            fetch('https://yumspot.onrender.com/submit-review', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -196,11 +196,11 @@
         const authLinks = document.querySelector('.auth-links');
         authLinks.innerHTML = `
             <div style="position: relative;">
-            <button id="mypageBtn" style="background: none; border: none; color: white; cursor: pointer;">마이페이지 ▾</button>
-            <div id="mypageDropdown" style="display:none; position:absolute; right:0; background:white; color:black; padding:10px; border-radius:5px;">
-                <a href="editprofile.html">내 정보 수정</a><br>
-                <a href="#" onclick="logout()">로그아웃</a>
-            </div>
+                <button id="mypageBtn" style="background: none; border: none; color: white; cursor: pointer;">마이페이지 ▾</button>
+                <div id="mypageDropdown" style="display:none; position:absolute; right:0; background:white; color:black; padding:10px; border-radius:5px;">
+                    <a href="mypage.html" style="color: black; text-decoration: none;">내 정보 확인</a><br>
+                    <a href="#" onclick="logout()" style="color: black; text-decoration: none;">로그아웃</a>
+                </div>
             </div>
         `;
 

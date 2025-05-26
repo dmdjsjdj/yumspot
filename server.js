@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const mysql = require('mysql2/promise');
 const bodyParser = require('body-parser');
@@ -13,6 +15,7 @@ const multer = require('multer');
 const bcrypt = require('bcrypt');
 
 const jwt = require('jsonwebtoken');
+const jwtSecret = process.env.JWT_SECRET || 'default_secret';
 const cookieParser = require('cookie-parser');
 app.use(cookieParser());
 
@@ -20,9 +23,6 @@ const cloudinary = require('cloudinary').v2;
 const fs = require('fs');
 
 console.log('DB_HOST:', process.env.DB_HOST);
-
-
-require('dotenv').config();
 
 // 정적 파일 제공 (HTML, CSS, JS)
 app.use(express.static(path.join(__dirname, 'public')));
@@ -91,7 +91,7 @@ app.post('/login', async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).send("비밀번호 틀림");
 
-        const token = jwt.sign({ id: user.id, username: user.username }, 'your_jwt_secret', { expiresIn: '1h' });
+        const token = jwt.sign({ id: user.id, username: user.username }, jwtSecret, { expiresIn: '1h' });
         res.cookie('token', token, { httpOnly: true });
         res.send("로그인 성공");
     } catch (err) {
@@ -123,7 +123,7 @@ function verifyToken(req, res, next) {
   const token = req.cookies.token;
   if (!token) return res.status(401).send("로그인 필요");
 
-  jwt.verify(token, 'your_jwt_secret', (err, decoded) => {
+  jwt.verify(token, jwtSecret, (err, decoded) => {
     if (err) return res.status(403).send("토큰 오류");
     req.user = decoded;
     next();
@@ -136,13 +136,13 @@ app.get('/logout', (req, res) => {
 
 //사용자확인&토큰확인
 app.get('/check-auth', (req, res) => {
-  const token = req.cookies.token;
-  if (!token) return res.json({ loggedIn: false });
+    const token = req.cookies.token;
+    if (!token) return res.json({ loggedIn: false });
 
-  jwt.verify(token, 'your_jwt_secret', (err, decoded) => {
-    if (err) return res.json({ loggedIn: false });
-    res.json({ loggedIn: true, user: decoded });
-  });
+    jwt.verify(token, jwtSecret, (err, decoded) => {
+        if (err) return res.json({ loggedIn: false });
+        res.json({ loggedIn: true, user: decoded });
+    });
 });
 
 app.post('/edit-profile', verifyToken, async (req, res) => {

@@ -170,18 +170,22 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // MariaDB 연결 설정
-import mysql from 'mysql2/promise'
+const mysql = require('mysql2/promise');
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  database: process.env.DB_NAME,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-})
+async function connectDB() {
+  const connection = await mysql.createConnection({
+    host: 'shuttle.proxy.rlwy.net',
+    port: 35304,
+    user: 'your_username',
+    password: 'your_password',
+    database: 'your_dbname',
+    ssl: {
+      rejectUnauthorized: false,  // SSL 문제 회피용 (Railway 등에서 필요)
+    }
+  });
+  return connection;
+}
+
 
 
 // 데이터베이스 연결 확인

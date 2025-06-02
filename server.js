@@ -31,7 +31,9 @@ const pool = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASS,
   database: process.env.DB_NAME,
-  ssl: {} // Railway는 기본적으로 SSL 요구
+  ssl: {
+        rejectUnauthorized: false
+  } // Railway는 기본적으로 SSL 요구
 });
 
 // 연결 확인

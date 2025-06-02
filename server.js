@@ -24,32 +24,25 @@ const fs = require('fs');
 
 console.log('DB_HOST:', process.env.DB_HOST);
 
-//db 객체를 제대로 초기화 pool 선언
-const db = mysql.createPool({
+// ✅ pool 선언이 빠지면 안 됩니다!
+const pool = mysql.createPool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
   user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
+  password: process.env.DB_PASS,
   database: process.env.DB_NAME,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: {} // Railway는 기본적으로 SSL 요구
 });
 
-// 연결 테스트 
-(async () => {
-  try {
-    const conn = await pool.getConnection();
-    const [rows] = await conn.query('SELECT 1');
-    console.log('✅ DB 연결 성공:', rows);
+// 연결 확인
+pool.getConnection()
+  .then(conn => {
+    console.log('✅ DB 연결 성공');
     conn.release();
-  } catch (error) {
-    console.error('❌ DB 연결 실패:', error);
-  }
-})();
+  })
+  .catch(err => {
+    console.error('❌ DB 연결 실패:', err);
+  });
 
 // 서버 실행
 app.listen(3000, () => {
@@ -203,10 +196,10 @@ const upload = multer({ storage });
 
 
 // 데이터베이스 연결 확인
-db.getConnection((err, connection) => {
+pool.getConnection((err, connection) => {
     // 개발 환경에서는 DB 연결 스킵 (로컬 테스트를 위해)
     if (process.env.NODE_ENV !== 'development') {
-        db.getConnection((err, connection) => {
+        pool.getConnection((err, connection) => {
             if (err) {
                 console.error('MariaDB 연결 실패:', err);
                 return;
@@ -218,7 +211,7 @@ db.getConnection((err, connection) => {
         console.log('개발 환경 - DB 연결 건너뜀');
     }
 });
-module.exports = db;
+module.exports = pool;
 // 리뷰 저장 API 엔드포인트
 app.post('/submit-review', upload.single('reviewImage'), verifyToken, async (req, res) => {
     const {
@@ -289,7 +282,7 @@ app.get("/my-reviews", verifyToken, async (req, res) => {
 });
 
 // 서버 실행
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
     console.log(`서버 실행 중: http://localhost:${PORT}`);
 });
@@ -304,7 +297,7 @@ setInterval(async () => {
 
     try {
       // 새로운 커넥션 강제로 생성해서 pool 내부 복구 유도
-      const connection = await db.getConnection();
+      const connection = await pool.getConnection();
       console.log('DB 재연결 성공');
       connection.release();
     } catch (reconnectErr) {

@@ -24,7 +24,7 @@ const fs = require('fs');
 
 console.log('DB_HOST:', process.env.DB_HOST);
 
-//db 객체를 제대로 초기화
+//db 객체를 제대로 초기화 pool 선언
 const db = mysql.createPool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
@@ -39,16 +39,22 @@ const db = mysql.createPool({
   }
 });
 
-async function testConnection() {
+// 연결 테스트 
+(async () => {
   try {
-    const [rows] = await db.query('SELECT 1');
-    console.log('DB 연결 성공:', rows);
-  } catch (err) {
-    console.error('DB 연결 실패:', err);
+    const conn = await pool.getConnection();
+    const [rows] = await conn.query('SELECT 1');
+    console.log('✅ DB 연결 성공:', rows);
+    conn.release();
+  } catch (error) {
+    console.error('❌ DB 연결 실패:', error);
   }
-}
+})();
 
-testConnection();
+// 서버 실행
+app.listen(3000, () => {
+  console.log('서버 실행 중: http://localhost:3000');
+});
 
 // 정적 파일 제공 (HTML, CSS, JS)
 app.use(express.static(path.join(__dirname, 'public')));

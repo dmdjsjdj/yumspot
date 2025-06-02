@@ -170,18 +170,19 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // MariaDB 연결 설정
-const db = mysql.createPool({
+import mysql from 'mysql2/promise'
+
+const pool = mysql.createPool({
   host: process.env.DB_HOST,
-  //port: process.env.DB_PORT || 3306,
+  port: process.env.DB_PORT,
   user: process.env.DB_USER,
   password: process.env.DB_PASS,
   database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0,
-  connectTimeout: 10000, // 10초 제한
-  idleTimeout: 60000     // 60초 후 유휴 커넥션 정리
-});
+  queueLimit: 0
+})
+
 
 // 데이터베이스 연결 확인
 db.getConnection((err, connection) => {

@@ -24,9 +24,6 @@ const fs = require('fs');
 
 console.log('DB_HOST:', process.env.DB_HOST);
 
-// MariaDB 연결 설정
-const mysql = require('mysql2/promise');
-
 //db 객체를 제대로 초기화
 const db = mysql.createPool({
   host: process.env.DB_HOST,
@@ -41,6 +38,17 @@ const db = mysql.createPool({
     rejectUnauthorized: false
   }
 });
+
+async function testConnection() {
+  try {
+    const [rows] = await db.query('SELECT 1');
+    console.log('DB 연결 성공:', rows);
+  } catch (err) {
+    console.error('DB 연결 실패:', err);
+  }
+}
+
+testConnection();
 
 // 정적 파일 제공 (HTML, CSS, JS)
 app.use(express.static(path.join(__dirname, 'public')));
@@ -299,12 +307,4 @@ setInterval(async () => {
   }
 }, 20000); // 30초마다 확인 (너무 자주하면 부하 생김)
 
-//임시로 추가
-(async () => {
-  try {
-    const [rows] = await db.query('SELECT 1');
-    console.log('✅ DB 연결 성공:', rows);
-  } catch (err) {
-    console.error('❌ DB 연결 실패:', err);
-  }
-})();
+

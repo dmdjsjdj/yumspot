@@ -1,5 +1,7 @@
 # 환경 변수 파일
 .env
+.env.local
+npm-debug.log*
 
 # node_modules 폴더 무시
 node_modules

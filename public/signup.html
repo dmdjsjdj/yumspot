@@ -1,210 +1,213 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YumSpot - 맛집을 찾아보자!</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #E3F2FD;
-            color: #333;
-            margin: 0;
-            padding: 0;
-        }
-        .header {
-            text-align: center;
-            padding: 20px;
-            font-size: 24px;
-            font-weight: bold;
-            background-color: #90CAF9;
-            color: white;
-        }
-        .header a {
-            color: white;
-            text-decoration: none;
-        }
-        .navbar {
-            background-color: #90CAF9;
-            padding: 15px;
-            text-align: center;
-            display: flex;
-            justify-content: center;
-        }
-        .navbar a {
-            color: white;
-            text-decoration: none;
-            margin: 0 10px;  /* 간격을 줄였어 */
-            font-size: 18px;
-        }
-        .navbar .auth-links {
-            position: absolute;
-            right: 20px;
-        }
-        .navbar .auth-links a {
-            color: white;
-            font-size: 14px;
-            margin: 0 5px;  /* 간격을 줄였어 */
-        }
-        .hero {
-            text-align: center;
-            padding: 50px;
-        }
-        .hero input {
-            width: 60%;
-            padding: 10px;
-            border: 2px solid #64B5F6;
-            border-radius: 5px;
-        }
-        .reviews {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-        }
-        .review-row {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            width: 100%;
-            margin-bottom: 10px;
-        }
-        .review-row:first-child {
-            justify-content: center; /* 첫 번째 줄은 가운데 정렬 */
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>YumSpot - 맛집을 찾아보자!</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #E3F2FD;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
 
-        .review-card {
-            background: white;
-            border-radius: 8px;
-            padding: 15px;
-            width: 250px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            text-align: center;
-        }
-        .form-container {
-            max-width: 600px;
-            margin: 50px auto;
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .form-container h2 {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        .form-group label {
-            font-weight: bold;
-        }
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 10px;
-            margin-top: 5px;
-            border-radius: 5px;
-            border: 1px solid #ccc;
-        }
-        .form-group .phone-group {
-            display: flex;
-            gap: 10px;
-        }
-        .form-group .phone-group input {
-            flex: 1;
-        }
-        .btn-group {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 30px;
-        }
-        .btn-group button {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            font-size: 16px;
-            border-radius: 5px;
-        }
-        .btn-cancel {
-            background: #ccc;
-            margin-right: 10px;
-        }
-        .btn-submit {
-            background: #000;
-            color: white;
-        }
-        .error {
-            color: red;
-            font-size: 13px;
-            margin-top: 5px;
-        }
-    </style>
+    .header {
+      text-align: center;
+      padding: 20px;
+      font-size: 24px;
+      font-weight: bold;
+      background-color: #90CAF9;
+      color: white;
+    }
+
+    .header a {
+      color: white;
+      text-decoration: none;
+    }
+
+    .navbar {
+        background-color: #90CAF9;
+        padding: 15px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .navbar a:hover {
+        color: #1565C0; /* 좀 더 진한 파란색으로 변경 */
+        text-decoration: underline;
+    }
+
+
+    .center-links {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        gap: 30px;
+        margin-left: 90px;
+    }
+
+    .center-links a {
+        text-decoration: none;
+        color: white;
+        font-size: 18px;
+    }
+
+    .auth-links {
+        display: flex;
+        gap: 7px; /* 간격 줄임 */
+    }
+
+    .auth-links a {
+        text-decoration: none;
+        color: white;
+        font-size: 14px;  /* 글씨 크기 줄임 */
+        font-weight: normal;  /* 볼드 해제 */
+    }
+
+    .container {
+      max-width: 400px;
+      margin: 40px auto;
+      background-color: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin: 10px 0 5px;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    .button-group {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+
+    .button-group button {
+      width: 48%;
+      padding: 10px;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .cancel {
+      background-color: #ccc;
+    }
+
+    .submit {
+      background-color: #42A5F5;
+      color: white;
+    }
+  </style>
 </head>
 <body>
-    <!-- Header & Navbar -->
-    <div class="header"><a href="home.html">YumSpot - 맛집을 찾아보자!</a></div>
+
+  <div class="header"><a href="home.html">YumSpot - 맛집을 찾아보자!</a></div>
+
     <div class="navbar">
-        <a href="regionreview.html">지역별</a>
-        <a href="foodreview.html">음식</a>
-        <a href="myreview.html">내 리뷰</a>
+        <div class="center-links">
+            <a href="regionreview.html">지역별</a>
+            <a href="foodreview.html">음식</a>
+            <a href="myreview.html">내 리뷰</a>
+        </div>
         <div class="auth-links">
-            <a href="login.html" class="login">로그인</a>
-            <a href="signup.html" class="signup">회원가입</a>
+            <a href="login.html">로그인</a>
+            <a href="signup.html">회원가입</a>
         </div>
     </div>
 
-    <!-- 회원가입 폼 -->
-    <div class="form-container">
-        <h2>회원 가입</h2>
+  <div class="container">
+    <h2>회원가입</h2>
+    <form id="signupForm">
+      <label for="username">아이디</label>
+      <input type="text" id="username" placeholder="영문소문자/숫자, 4~16자" required>
 
-        <div class="form-group">
-            <label for="username">아이디</label>
-            <input type="text" id="username" placeholder="영문소문자/숫자, 4~16자">
-        </div>
+      <label for="password">비밀번호</label>
+      <input type="password" id="password" placeholder="영문 대소문자/숫자/특수문자 중 2가지 이상 포함, 10자~16자" required>
 
-        <div class="form-group">
-            <label for="password">비밀번호</label>
-            <input type="password" id="password" placeholder="영문 대소문자/숫자/특수문자 중 2가지 이상 포함, 10자~16자">
-        </div>
+      <label for="nickname">닉네임</label>
+      <input type="text" id="nickname" placeholder="닉네임을 입력하세요" required>
 
-        <div class="form-group">
-            <label for="nickname">닉네임</label>
-            <input type="text" id="nickname">
-        </div>
+      <div class="button-group">
+        <button type="button" class="cancel" onclick="window.location.href='home.html'">취소</button>
+        <button type="submit" class="submit">회원가입</button>
+      </div>
+    </form>
+  </div>
 
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
-        <div class="btn-group">
-            <a href="home.html"><button class="btn-cancel">취소</button></a>
-            <a href="home.html"><button class="btn-submit" onclick="signup()">가입하기</button>
-        </div>
+    const supabase = supabase.createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
-        <script>
-        function signup() {
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            const nickname = document.getElementById('nickname').value;
+    const form = document.getElementById('signupForm');
+    const errorMsg = document.getElementById('errorMsg');
 
-            if (!username || !password || !nickname) {
-                alert("모든 필드를 입력해주세요.");
-                return;
-            }
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorMsg.textContent = '';
 
-            fetch('http://localhost:3000/signup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password, nickname })
-            })
-            .then(res => res.text())
-            .then(data => {
-                alert(data);
-                window.location.href = 'login.html'; // 또는 home.html
-            })
-            .catch(err => {
-                console.error('회원가입 오류:', err);
-                alert('회원가입 실패');
-            });
-        }
-        </script>
-    </div>
+      const username = form.username.value.trim();
+      const password = form.password.value.trim();
+      const nickname = form.nickname.value.trim();
+
+      // 간단 유효성 검사 (필요하면 더 강화 가능)
+      const usernameReg = /^[a-z0-9]{4,16}$/;
+      const passwordReg = /^(?=.*[A-Za-z])(?=.*\d|.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{10,16}$/;
+      if (!usernameReg.test(username)) {
+        errorMsg.textContent = '아이디는 영문 소문자와 숫자 4~16자여야 합니다.';
+        return;
+      }
+      if (!passwordReg.test(password)) {
+        errorMsg.textContent = '비밀번호는 영문 대소문자/숫자/특수문자 중 2가지 이상 포함, 10~16자여야 합니다.';
+        return;
+      }
+      if (nickname.length < 2 || nickname.length > 20) {
+        errorMsg.textContent = '닉네임은 2자 이상 20자 이하여야 합니다.';
+        return;
+      }
+
+      // Supabase auth 회원가입
+      const { data, error } = await supabase.auth.signUp({
+        email: username + '@example.com', // 이메일 필드가 필요하면 임시 처리 (username에 이메일 대신 아이디만 받는 경우)
+        password,
+      });
+
+      if (error) {
+        errorMsg.textContent = '회원가입 실패: ' + error.message;
+        return;
+      }
+
+      // 닉네임은 DB에 저장 (예: profiles 테이블)
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert([{ id: data.user.id, nickname }]);
+
+      if (profileError) {
+        errorMsg.textContent = '프로필 저장 실패: ' + profileError.message;
+        return;
+      }
+
+      alert('회원가입 성공! 로그인 페이지로 이동합니다.');
+      location.href = 'login.html';
+    });
+  </script>
 </body>
 </html>

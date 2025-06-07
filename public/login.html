@@ -148,6 +148,10 @@
         <h2>로그인</h2>
         <input type="text" id="username" placeholder="아이디">
         <input type="password" id="password" placeholder="비밀번호">
+        <input type="checkbox" id="showPassword" onclick="togglePassword()"> 비밀번호 보기
+        <br><br>
+        <input type="checkbox" id="rememberMe"> 로그인 상태 유지
+
 
         <button onclick="login()">로그인</button>
 
@@ -166,25 +170,37 @@
     </div>
 
     <script>
+    function togglePassword() {
+        const passwordInput = document.getElementById("password");
+        passwordInput.type = passwordInput.type === "password" ? "text" : "password";
+    }
     function login() {
-        const username = document.getElementById("username").value;
-        const password = document.getElementById("password").value;
+        const username = document.getElementById("username").value.trim();
+        const password = document.getElementById("password").value.trim();
+
+        // 입력값 검사
+        if (!username || !password) {
+            alert("아이디와 비밀번호를 모두 입력하세요.");
+            return;
+        }
 
         fetch("http://localhost:3000/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username, password })
         })
-        .then(res => res.text())
-        .then(msg => {
-            alert(msg);
-            if (msg === "로그인 성공") {
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message || "로그인 성공");
                 window.location.href = "home.html";
+            } else {
+                alert(data.message || "아이디 또는 비밀번호가 올바르지 않습니다.");
             }
         })
         .catch(err => {
-            console.error(err);
-            alert("로그인 중 오류 발생");
+            console.error("로그인 중 에러 발생:", err);
+            alert("서버 오류가 발생했습니다.");
         });
     }
     </script>

@@ -12,39 +12,57 @@
             margin: 0;
             padding: 0;
         }
+
         .header {
-            text-align: center;
-            padding: 20px;
-            font-size: 24px;
-            font-weight: bold;
-            background-color: #90CAF9;
-            color: white;
+        text-align: center;
+        padding: 20px;
+        font-size: 24px;
+        font-weight: bold;
+        background-color: #90CAF9;
+        color: white;
         }
+
         .header a {
-            color: white;
-            text-decoration: none;
+        color: white;
+        text-decoration: none;
         }
+
         .navbar {
             background-color: #90CAF9;
-            padding: 15px;
-            text-align: center;
+            padding: 10px ;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .navbar a:hover {
+            color: #1565C0; /* 좀 더 진한 파란색으로 변경 */
+            text-decoration: none;
+        }
+
+        .center-links {
+            flex: 1;
             display: flex;
             justify-content: center;
+            gap: 30px;
+            margin-left: 90px;
         }
-        .navbar a {
-            color: white;
+
+        .center-links a {
             text-decoration: none;
-            margin: 0 10px;  
+            color: white;
             font-size: 18px;
         }
-        .navbar .auth-links {
-            position: absolute;
-            right: 20px;
+
+        .auth-links {
+            display: flex;
+            gap: 7px; /* 간격 줄임 */
         }
-        .navbar .auth-links a {
+
+        .auth-links a {
+            text-decoration: none;
             color: white;
-            font-size: 14px;
-            margin: 0 5px;  
+            font-size: 14px;  /* 글씨 크기 줄임 */
+            font-weight: normal;  /* 볼드 해제 */
         }
         .hero {
             text-align: center;
@@ -88,12 +106,14 @@
         <a href="home.html">YumSpot - 맛집을 찾아보자!</a>
     </div>
     <div class="navbar">
-        <a href="regionreview.html">지역별</a>
-        <a href="foodreview.html">음식</a>
-        <a href="myreview.html">내 리뷰</a>
+        <div class="center-links">
+            <a href="regionreview.html">지역별</a>
+            <a href="foodreview.html">음식</a>
+            <a href="myreview.html">내 리뷰</a>
+        </div>
         <div class="auth-links">
-            <a href="login.html" class="login">로그인</a>
-            <a href="signup.html" class="signup">회원가입</a>
+            <a href="login.html">로그인</a>
+            <a href="signup.html">회원가입</a>
         </div>
     </div>
 

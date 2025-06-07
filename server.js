@@ -13,6 +13,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import pkg from 'pg';
 import { Readable } from 'stream';
+import { v2 as cloudinary } from 'cloudinary';
 
 const { Pool } = pkg;
 
@@ -195,12 +196,12 @@ app.post('/edit-profile', verifyToken, async (req, res) => {
 // 리뷰 저장
 app.post('/submit-review', upload.single('reviewImage'), verifyToken, async (req, res) => {
   const {
-    reviewTitle, reviewDate, restaurantName,
-    restaurantAddress, rating, reviewContent,
-    foodCategory, regionCategory
+    reviewtitle, reviewdate, restaurantname,
+    restaurantaddress, rating, reviewcontent,
+    foodcategory, regioncategory
   } = req.body;
 
-  let imageUrl = null;
+  let image_url = null;
 
   if (req.file) {
     try {
@@ -224,7 +225,7 @@ app.post('/submit-review', upload.single('reviewImage'), verifyToken, async (req
       };
 
       const result = await streamUpload(req.file.buffer);
-      imageUrl = result.secure_url;
+      image_url = result.secure_url;
 
     } catch (err) {
       console.error("이미지 업로드 실패:", err);
@@ -237,15 +238,15 @@ app.post('/submit-review', upload.single('reviewImage'), verifyToken, async (req
       .from('reviews')
       .insert([{
         user_id: req.user.id,
-        title: reviewTitle,
-        date: reviewDate,
-        restaurant_name: restaurantName,
-        address: restaurantAddress,
+        title: reviewtitle,
+        date: reviewdate,
+        restaurant_name: restaurantname,
+        address: restaurantaddress,
         rating,
-        content: reviewContent,
-        image_url: imageUrl,
-        foodcategory: foodCategory,
-        regionNames: regionCategory
+        content: reviewcontent,
+        image_url: image_url,
+        foodcategory: foodcategory,
+        regionNames: regioncategory
       }]);
 
     if (error) throw error;
@@ -262,7 +263,7 @@ app.get('/api/reviews/recent', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('reviews')
-      .select('id, title, rating, foodcategory, regionNames')
+      .select('id, title, rating, foodcategory, regionnames')
       .order('date', { ascending: false })
       .limit(3);
 

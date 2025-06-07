@@ -61,7 +61,7 @@ app.get('/', (req, res) => {
 //리뷰 받아오기기
 app.get('/get-reviews', async (req, res) => {
     try {
-        const [results] = await db.query('SELECT * FROM reviews');
+        const [results] = await pool.query('SELECT * FROM reviews');
         if (results.length === 0) {
             return res.status(404).send('리뷰를 찾을 수 없습니다.');
         }
@@ -75,7 +75,7 @@ app.get('/get-reviews', async (req, res) => {
 app.get('/get-review/:id', async (req, res) => {
     const reviewId = req.params.id;
     try {
-        const [results] = await db.query('SELECT * FROM reviews WHERE id = ?', [reviewId]);
+        const [results] = await pool.query('SELECT * FROM reviews WHERE id = ?', [reviewId]);
         if (results.length === 0) return res.status(404).send('리뷰를 찾을 수 없음');
         res.json(results[0]);
     } catch (err) {
@@ -86,7 +86,7 @@ app.get('/get-review/:id', async (req, res) => {
 //최근 리뷰 3개 불러오기
 app.get('/api/reviews/recent', async (req, res) => {
     try {
-        const [results] = await db.query("SELECT id, title, rating, foodcategory, regionNames FROM reviews ORDER BY date DESC LIMIT 3");
+        const [results] = await pool.query("SELECT id, title, rating, foodcategory, regionNames FROM reviews ORDER BY date DESC LIMIT 3");
         res.json(results);
     } catch (err) {
         console.error("리뷰 가져오기 실패:", err);
@@ -100,7 +100,7 @@ app.post('/signup', async (req, res) => {
 
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-        await db.query('INSERT INTO users (username, password, nickname) VALUES (?, ?, ?)', [username, hashedPassword, nickname]);
+        await pool.query('INSERT INTO users (username, password, nickname) VALUES (?, ?, ?)', [username, hashedPassword, nickname]);
         res.send('회원가입 완료!');
     } catch (err) {
         console.error('회원가입 오류:', err);
@@ -111,7 +111,7 @@ app.post('/signup', async (req, res) => {
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     try {
-        const [results] = await db.query("SELECT * FROM users WHERE username = ?", [username]);
+        const [results] = await pool.query("SELECT * FROM users WHERE username = ?", [username]);
         if (results.length === 0) return res.status(400).send("아이디 없음");
 
         const user = results[0];
@@ -131,13 +131,13 @@ app.post('/login', async (req, res) => {
 app.post('/find-password', async (req, res) => {
     const { username, nickname } = req.body;
     try {
-        const [results] = await db.query('SELECT * FROM users WHERE username = ? AND nickname = ?', [username, nickname]);
+        const [results] = await pool.query('SELECT * FROM users WHERE username = ? AND nickname = ?', [username, nickname]);
         if (results.length === 0) return res.status(404).send("일치하는 사용자가 없습니다.");
 
         const tempPassword = Math.random().toString(36).slice(2, 10);
         const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-        await db.query('UPDATE users SET password = ? WHERE username = ?', [hashedPassword, username]);
+        await pool.query('UPDATE users SET password = ? WHERE username = ?', [hashedPassword, username]);
         res.send(tempPassword);
     } catch (err) {
         console.error("비밀번호 찾기 오류:", err);
@@ -176,7 +176,7 @@ app.post('/edit-profile', verifyToken, async (req, res) => {
     const { newPassword, nickname } = req.body;
     try {
         const hashed = await bcrypt.hash(newPassword, 10);
-        await db.query("UPDATE users SET password = ?, nickname = ? WHERE id = ?", [hashed, nickname, req.user.id]);
+        await pool.query("UPDATE users SET password = ?, nickname = ? WHERE id = ?", [hashed, nickname, req.user.id]);
         res.send("정보 수정 완료");
     } catch (err) {
         console.error("프로필 수정 오류:", err);
@@ -242,7 +242,7 @@ app.post('/submit-review', upload.single('reviewImage'), verifyToken, async (req
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
     try {
-        await db.query(sql, [
+        await pool.query(sql, [
             req.user.id, reviewTitle, reviewDate, restaurantName,
             restaurantAddress, rating, reviewContent, imageUrl,
             foodCategory, regionCategory
@@ -264,7 +264,7 @@ cloudinary.config({
 //리뷰 불러오기
 app.get('/review/:id', async (req, res) => {
     try {
-        const [results] = await db.query('SELECT * FROM reviews WHERE id = ?', [req.params.id]);
+        const [results] = await pool.query('SELECT * FROM reviews WHERE id = ?', [req.params.id]);
         if (results.length === 0) return res.status(404).send('리뷰 없음');
         res.json(results[0]);
     } catch (err) {
@@ -275,7 +275,7 @@ app.get('/review/:id', async (req, res) => {
 //내 리뷰 불러오기
 app.get("/my-reviews", verifyToken, async (req, res) => {
     try {
-        const [results] = await db.query("SELECT * FROM reviews WHERE user_id = ?", [req.user.id]);
+        const [results] = await pool.query("SELECT * FROM reviews WHERE user_id = ?", [req.user.id]);
         res.json(results);
     } catch (err) {
         console.error("리뷰 조회 오류:", err);
@@ -292,7 +292,7 @@ app.listen(PORT, () => {
 // 연결 유지를 위한 ping + 재연결 로직
 setInterval(async () => {
   try {
-    const [rows] = await db.query('SELECT 1');
+    const [rows] = await pool.query('SELECT 1');
     // console.log('DB keep-alive success');
   } catch (err) {
     console.error('DB 연결 끊김! 재연결 시도 중...');

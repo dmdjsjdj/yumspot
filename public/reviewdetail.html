@@ -94,7 +94,7 @@
             document.getElementById("reviewRestaurant").innerText = `식당명: ${review.restaurant_name}`;
             document.getElementById("reviewAddress").innerText = `주소: ${review.address}`;
             document.getElementById("reviewRating").innerText = `별점: ${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}`;
-            document.getElementById("reviewContent").innerText = `내용: ${review.content}`;
+            document.getElementById("reviewContent").innerText = `한줄평평: ${review.content}`;
             document.getElementById("reviewImage").src = review.image_url;
         }
 

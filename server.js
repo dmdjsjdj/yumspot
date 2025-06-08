@@ -80,12 +80,18 @@ app.post('/signup', async (req, res) => {
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('users')
-      .insert([{ username, password: hashedPassword, nickname }]);
+      .insert([
+        { 
+          username, 
+          password: hashedPassword, 
+          nickname,
+        }
+      ]);
 
     if (error) throw error;
-    res.send('회원가입 완료!');
+    res.status(201).send('회원가입 성공');
   } catch (err) {
     console.error('회원가입 오류:', err);
     res.status(500).send('서버 오류');
@@ -97,29 +103,38 @@ app.post('/login', async (req, res) => {
   const { username, password, remember } = req.body;
 
   try {
-    const { data, error } = await supabase
+    // 사용자 조회
+    const { data: user, error } = await supabase
       .from('users')
       .select('*')
       .eq('username', username)
       .single();
 
-    if (error || !data) return res.status(400).json({ success: false, message: "아이디 없음" });
+    if (error || !user) {
+      return res.status(401).send('존재하지 않는 사용자입니다.');
+    }
 
-    const isMatch = await bcrypt.compare(password, data.password);
-    if (!isMatch) return res.status(400).json({ success: false, message: "비밀번호 틀림" });
+    // 비밀번호 비교 (입력값 vs DB의 해시)
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(401).send('비밀번호가 일치하지 않습니다.');
+    }
 
-    const token = jwt.sign({ id: data.id, username: data.username }, jwtSecret, { expiresIn: remember ? '7d' : '1h' });
+    // JWT 토큰 생성
+    const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, {
+      expiresIn: remember ? '7d' : '1h',
+    });
 
+    // 쿠키로 토큰 설정
     res.cookie('token', token, {
       httpOnly: true,
       maxAge: remember ? 7 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000, // 7일 or 1시간
     });
 
-    res.json({ success: true, message: "로그인 성공" });
-
+    res.send('로그인 성공');
   } catch (err) {
-    console.error('로그인 오류:', err);
-    res.status(500).json({ success: false, message: "서버 오류" });
+    console.error(err);
+    res.status(500).send('서버 오류');
   }
 });
 
@@ -140,9 +155,10 @@ app.get('/check-auth', (req, res) => {
   });
 });
 
-// 비밀번호 찾기
+// 비밀번호 변경
 app.post('/find-password', async (req, res) => {
-  const { username, nickname } = req.body;
+  const { username, nickname, newPassword } = req.body;
+
   try {
     const { data, error } = await supabase
       .from('users')
@@ -151,28 +167,27 @@ app.post('/find-password', async (req, res) => {
       .eq('nickname', nickname)
       .single();
 
-    if (error || !data) return res.status(404).send("일치하는 사용자가 없습니다.");
+    if (error || !data) {
+      return res.status(400).send('사용자 정보를 찾을 수 없습니다.');
+    }
 
-    const tempPassword = Math.random().toString(36).slice(2, 10); // 임시 비번
-    const hashed = await bcrypt.hash(tempPassword, 10);
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     const { error: updateError } = await supabase
       .from('users')
-      .update({ password: hashed })
-      .eq('username', username);
+      .update({ password: hashedPassword })
+      .eq('id', data.id);
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      return res.status(500).send('비밀번호 변경 중 오류 발생');
+    }
 
-    // 사용자에게 임시 비밀번호 전달
-    res.json({
-      message: "임시 비밀번호가 발급되었습니다. 로그인 후 반드시 비밀번호를 변경해주세요.",
-      tempPassword // 프론트에서만 1회 노출
-    });
+    res.status(200).send('비밀번호가 성공적으로 변경되었습니다.');
   } catch (err) {
-    console.error("비밀번호 찾기 오류:", err);
-    res.status(500).send("서버 오류");
+    res.status(500).send('서버 오류');
   }
 });
+
 
 //내 정보 불러오기
 app.get('/mypage', verifyToken, async (req, res) => {

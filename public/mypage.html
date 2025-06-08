@@ -127,7 +127,7 @@
                 // 예: { id: 3, username: "hong123", nickname: "홍길동", createdAt: "2024-05-01" }
 
                 document.getElementById("username").textContent = `아이디: ${user.username}`;
-                document.getElementById("nickname").textContent = `닉네임: ${user.nickname || user.username}`;
+                document.getElementById("nickname").textContent = `닉네임: ${user.nickname}`;
                 document.getElementById("createdAt").textContent = `가입일: ${new Date(user.createdAt).toLocaleDateString('ko-KR')}`;
 
             // 🔽 로그인 상태일 때 마이페이지 드롭다운 메뉴 추가

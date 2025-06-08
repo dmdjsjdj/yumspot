@@ -116,6 +116,7 @@ app.post('/login', async (req, res) => {
     });
 
     res.json({ success: true, message: "로그인 성공" });
+
   } catch (err) {
     console.error('로그인 오류:', err);
     res.status(500).json({ success: false, message: "서버 오류" });
@@ -173,22 +174,50 @@ app.post('/find-password', async (req, res) => {
   }
 });
 
-// 프로필 수정
-app.post('/edit-profile', verifyToken, async (req, res) => {
-  const { newPassword, nickname } = req.body;
+//내 정보 불러오기
+app.get('/mypage', verifyToken, async (req, res) => {
   try {
-    const hashed = await bcrypt.hash(newPassword, 10);
+    const userId = req.user.id;
+    const { data, error } = await supabase
+      .from('users')
+      .select('username, nickname')
+      .eq('id', userId)
+      .single();
+
+    if (error) return res.status(500).send('정보 불러오기 실패');
+
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('서버 오류');
+  }
+});
+
+// 프로필 수정
+app.put('/mypage', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { nickname, password } = req.body;
+
+    if (!nickname && !password) {
+      return res.status(400).send('수정할 내용이 없습니다.');
+    }
+
+    const updateData = {};
+    if (nickname) updateData.nickname = nickname;
+    if (password) updateData.password = await bcrypt.hash(password, 10);
+
     const { error } = await supabase
       .from('users')
-      .update({ password: hashed, nickname })
-      .eq('id', req.user.id);
+      .update(updateData)
+      .eq('id', userId);
 
-    if (error) throw error;
+    if (error) return res.status(500).send('수정 실패');
 
-    res.send("정보 수정 완료");
+    res.json({ message: '정보가 수정되었습니다.' });
   } catch (err) {
-    console.error("프로필 수정 오류:", err);
-    res.status(500).send("업데이트 실패");
+    console.error(err);
+    res.status(500).send('서버 오류');
   }
 });
 

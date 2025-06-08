@@ -97,11 +97,7 @@
     </div>
     
     <div class="categories">
-        <a href="#" onclick="showRegion('seoul')">서울</a> |
-        <a href="#" onclick="showRegion('busan')">부산</a> |
-        <a href="#" onclick="showRegion('daegu')">대구</a> |
-        <a href="#" onclick="showRegion('incheon')">인천</a> |
-        <a href="#" onclick="showRegion('jeju')">제주</a>
+
     </div>
 
     <div class="reviews" id="reviewSection">
@@ -111,50 +107,37 @@
         </div>
     </div>
 
-    <script>
-        // 지역별 맛집 데이터
-        const regions = {
-            seoul: [
-                { name: "서울 맛집 1", rating: 4.5, description: "서울의 인기 맛집에 대한 리뷰" },
-                { name: "서울 맛집 2", rating: 4.7, description: "서울에서 꼭 가봐야 할 맛집" },
-                { name: "서울 맛집 3", rating: 4.8, description: "서울에서 최고로 추천하는 맛집" }
-            ],
-            busan: [
-                { name: "부산 맛집 1", rating: 4.6, description: "부산의 맛있는 해산물 맛집" },
-                { name: "부산 맛집 2", rating: 4.3, description: "부산에서 유명한 밀면 집" }
-            ],
-            daegu: [
-                { name: "대구 맛집 1", rating: 4.4, description: "대구에서 유명한 찜갈비 맛집" }
-            ],
-            incheon: [
-                { name: "인천 맛집 1", rating: 4.7, description: "인천의 대표적인 해물탕 맛집" }
-            ],
-            jeju: [
-                { name: "제주 맛집 1", rating: 4.9, description: "제주도에서 꼭 가봐야 할 맛집" }
-            ]
-        };
+    <script src="categoryLists.js"></script>
 
-        // 지역 선택 시 동적 컨텐츠 업데이트
-        function showRegion(region) {
+    <script type="module">
+        import { regionCategories } from './categoryLists.js'; // 경로 정확히 맞춰줘
+
+        const container = document.getElementById("regionCategoryLinks");
+
+        regionCategories.forEach((category, idx) => {
+            const regionId = category.toLowerCase(); // 예: 서울 → seoul
+
+            const link = document.createElement("a");
+            link.href = "#";
+            link.textContent = category;
+            link.onclick = () => showRegion(regionId);
+
+            container.appendChild(link);
+
+            // 마지막 링크가 아니면 ' | ' 붙이기
+            if (idx < regionCategories.length - 1) {
+                container.appendChild(document.createTextNode(" | "));
+            }
+        });
+        window.showRegion = function(region) {
             const reviewRow = document.getElementById("reviewRow");
-            const title = document.getElementById("selectedTitle"); // h2 요소 가져오기
+            const title = document.getElementById("selectedTitle");
+            reviewRow.innerHTML = '';
+            title.textContent = `${region} 맛집`;
 
-            reviewRow.innerHTML = ''; // 기존 내용 초기화
-
-            // 선택한 카테고리에 따라 제목 변경
-            const regionNames = {
-                seoul: "서울",
-                busan: "부산",
-                daegu: "대구",
-                incheon: "인천",
-                jeju: "제주"
-            };
-            title.textContent = `${regionNames[region]} 맛집`;  // 제목 변경        
-
-            // 선택된 지역의 맛집 데이터를 가져옵니다.
             const regionData = regions[region];
+            if (!regionData) return;
 
-            // 맛집 리뷰를 동적으로 생성하여 추가합니다.
             regionData.forEach(review => {
                 const reviewCard = document.createElement("div");
                 reviewCard.classList.add("review-card");
@@ -165,35 +148,35 @@
                 `;
                 reviewRow.appendChild(reviewCard);
             });
-        }
+        };
     </script>
     <script>
-    fetch('/check-auth')
-    .then(res => res.json())
-    .then(data => {
-        if (data.loggedIn) {
-        const authLinks = document.querySelector('.auth-links');
-        authLinks.innerHTML = `
-            <div style="position: relative;">
-                <button id="mypageBtn" style="background: none; border: none; color: white; cursor: pointer;">마이페이지 ▾</button>
-                <div id="mypageDropdown" style="display:none; position:absolute; right:0; background:white; color:black; padding:10px; border-radius:5px;">
-                    <a href="mypage.html" style="color: black; text-decoration: none;">내 정보 확인</a><br>
-                    <a href="#" onclick="logout()" style="color: black; text-decoration: none;">로그아웃</a>
+        fetch('/check-auth')
+        .then(res => res.json())
+        .then(data => {
+            if (data.loggedIn) {
+            const authLinks = document.querySelector('.auth-links');
+            authLinks.innerHTML = `
+                <div style="position: relative;">
+                    <button id="mypageBtn" style="background: none; border: none; color: white; cursor: pointer;">마이페이지 ▾</button>
+                    <div id="mypageDropdown" style="display:none; position:absolute; right:0; background:white; color:black; padding:10px; border-radius:5px;">
+                        <a href="mypage.html" style="color: black; text-decoration: none;">내 정보 확인</a><br>
+                        <a href="#" onclick="logout()" style="color: black; text-decoration: none;">로그아웃</a>
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
 
-        document.getElementById("mypageBtn").addEventListener("click", () => {
-            const dropdown = document.getElementById("mypageDropdown");
-            dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
+            document.getElementById("mypageBtn").addEventListener("click", () => {
+                const dropdown = document.getElementById("mypageDropdown");
+                dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
+            });
+            }
         });
-        }
-    });
 
-    function logout() {
-    fetch("/logout")
-        .then(() => window.location.href = "home.html");
-    }
+        function logout() {
+        fetch("/logout")
+            .then(() => window.location.href = "home.html");
+        }
     </script>
 </body>
 </html>

@@ -168,7 +168,7 @@
 
 
         // 페이지 로딩 시 내 리뷰 보여주기
-        /*window.onload = function () {
+        window.onload = function () {
             fetch('/check-auth')
                 .then(res => res.json())
                 .then(data => {
@@ -180,7 +180,7 @@
                         showMyReviews(data.userId); // 로그인된 사용자 ID 전달
                     }
                 });
-        };*/
+        };
     </script>
     <script>
     fetch('/check-auth')

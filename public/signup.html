@@ -175,7 +175,9 @@
 
       // 간단 유효성 검사 
       const usernameReg = /^[a-z0-9]{4,16}$/;
+      const nicknameReg  = /^.{2,20}$/;
       const passwordReg = /^(?=.*[A-Za-z])(?=.*\d|.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{10,16}$/;
+      
       if (!usernameReg.test(username)) {
         errorMsg.textContent = '아이디는 영문 소문자와 숫자 4~16자여야 합니다.';
         return;

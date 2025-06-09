@@ -74,7 +74,7 @@
             margin-bottom: 30px;
         }
         .form-container input {
-            width: 100%;
+            width: 90%;
             padding: 12px;
             margin-bottom: 15px;
             border: 1px solid #ccc;
@@ -94,7 +94,26 @@
             margin-top: 15px;
             font-size: 14px;
         }
-        
+        .form-group {
+            position: relative;
+            /*max-width: 300px;
+            margin-bottom: 20px;*/
+        }
+        .form-group input {
+            width: 100%;
+            padding: 10px 40px 10px 10px; /* 오른쪽 패딩 확보 */
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .form-group i {
+            position: absolute;
+            bottom: 10px;
+            right: 12px;
+            cursor: pointer;
+            color: #888;
+        }
     </style>
 </head>
 <body>
@@ -115,11 +134,15 @@
     <div class="form-container">
         <h2>로그인</h2>
         <input type="text" id="username" placeholder="아이디">
-        <input type="password" id="password" placeholder="비밀번호">
-        <input type="checkbox" id="showPassword" onclick="togglePassword()"> 비밀번호 보기
-        <br><br>
-        <input type="checkbox" id="rememberMe"> 로그인 상태 유지
 
+        <div class="form-group">
+            <input type="password" id="password" placeholder="비밀번호">
+            <i class="fas fa-eye" id="togglePassword"></i>
+        </div>
+
+        <div class="login-ing">
+            <input type="checkbox" id="rememberMe"> 로그인 상태 유지
+        </div>
 
         <button onclick="login()">로그인</button>
 
@@ -138,10 +161,21 @@
     </div>
 
     <script>
-    function togglePassword() {
-        const passwordInput = document.getElementById("password");
-        passwordInput.type = passwordInput.type === "password" ? "text" : "password";
-    }
+      const toggleIcon = document.getElementById('togglePassword');
+      const passwordInput = document.getElementById('password'); 
+
+    toggleIcon.addEventListener('click', () => {
+      const type = passwordInput.getAttribute('type');
+      if (type === 'password') {
+        passwordInput.setAttribute('type', 'text');
+        toggleIcon.classList.remove('fa-eye');
+        toggleIcon.classList.add('fa-eye-slash');
+      } else {
+        passwordInput.setAttribute('type', 'password');
+        toggleIcon.classList.remove('fa-eye-slash');
+        toggleIcon.classList.add('fa-eye');
+      }
+    });
     function login() {
         const username = document.getElementById("username").value.trim();
         const password = document.getElementById("password").value.trim();

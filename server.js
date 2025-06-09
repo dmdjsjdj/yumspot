@@ -15,7 +15,7 @@ import pkg from 'pg';
 import { Readable } from 'stream';
 import { v2 as cloudinary } from 'cloudinary';
 
-import { foodCategories, regionCategories } from './categoryLists.js';
+const { regionCategories, foodCategories } = require('./utils/categoryLists');
 
 const { Pool } = pkg;
 
@@ -44,11 +44,13 @@ cloudinary.config({
 });
 
 //카테고리 불러오기
-app.get('/api/categories', (req, res) => {
-  res.json({
-    food: foodCategories,
-    region: regionCategories,
-  });
+app.get('/api/categories/food', (req, res) => {
+  res.json(foodCategories);
+});
+
+// 지역 카테고리 반환
+app.get('/api/categories/region', (req, res) => {
+  res.json(regionCategories);
 });
 
 // 정적 파일

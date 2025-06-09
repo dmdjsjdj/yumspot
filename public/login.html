@@ -7,7 +7,7 @@
       <!-- Font Awesome CDN -->
     <link
         rel="stylesheet"
-        href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
     />
     <style>
         body {
@@ -96,12 +96,12 @@
         }
         .form-group {
             position: relative;
-            /*max-width: 300px;
-            margin-bottom: 20px;*/
+            /*max-width: 300px;*/
+            margin-bottom: 20px;
         }
         .form-group input {
-            width: 100%;
-            padding: 10px 40px 10px 10px; /* 오른쪽 패딩 확보 */
+            width: 97%;
+            padding: 12px 40px 12px 12px;
             font-size: 16px;
             border: 1px solid #ccc;
             border-radius: 5px;
@@ -109,10 +109,28 @@
         }
         .form-group i {
             position: absolute;
-            bottom: 10px;
-            right: 12px;
+            top: 40%;
+            transform: translateY(-50%);
+            right: 25px;
             cursor: pointer;
             color: #888;
+        }
+        .login-ing input {
+            position: absolute;
+            margin-bottom: 30px;
+        }
+        .remember-container {
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 14px;
+            white-space: nowrap;
+            color: #555;
+        }
+        .remember-container input[type="checkbox"] {
+            position: relative;
+            top: 4px; /* 체크박스를 약간 위로 */
+            margin-left: -160px; /* 텍스트와 간격 */
+            vertical-align: middle;
         }
     </style>
 </head>
@@ -140,8 +158,9 @@
             <i class="fas fa-eye" id="togglePassword"></i>
         </div>
 
-        <div class="login-ing">
-            <input type="checkbox" id="rememberMe"> 로그인 상태 유지
+        <div class="remember-container">
+            <label for="rememberMe">로그인 상태 유지</label>
+            <input type="checkbox" id="rememberMe">
         </div>
 
         <button onclick="login()">로그인</button>

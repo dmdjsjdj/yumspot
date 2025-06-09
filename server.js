@@ -15,6 +15,8 @@ import pkg from 'pg';
 import { Readable } from 'stream';
 import { v2 as cloudinary } from 'cloudinary';
 
+import { foodCategories, regionCategories } from './categoryLists.js';
+
 const { Pool } = pkg;
 
 dotenv.config();
@@ -39,6 +41,14 @@ cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+//카테고리 불러오기
+app.get('/api/categories', (req, res) => {
+  res.json({
+    food: foodCategories,
+    region: regionCategories,
+  });
 });
 
 // 정적 파일

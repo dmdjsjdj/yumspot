@@ -168,6 +168,31 @@
         alert(e.message || '수정에 실패했습니다.');
       }
     });
+
+    async function guard(){
+      const d = await fetch('/check-auth', { credentials:'include' }).then(r=>r.json());
+      if(!d.loggedIn){ alert('로그인이 필요합니다.'); location.href='login.html'; return; }
+      const el = document.querySelector('.auth-links');
+      if(el){
+        el.innerHTML = `
+          <div style="position: relative;">
+            <button id="mypageBtn" style="background:none;border:none;color:#fff;cursor:pointer;">마이페이지 ▾</button>
+            <div id="mypageDropdown" style="display:none;position:absolute;right:0;background:#fff;color:#000;padding:10px;border-radius:6px;">
+              <a href="mypage.html" style="color:#000;text-decoration:none;">내 정보 확인</a><br>
+              <a href="#" id="logoutLink" style="color:#000;text-decoration:none;">로그아웃</a>
+            </div>
+          </div>`;
+        document.getElementById('mypageBtn')?.addEventListener('click', ()=>{
+          const dd = document.getElementById('mypageDropdown');
+          dd.style.display = dd.style.display==='none'?'block':'none';
+        });
+        document.getElementById('logoutLink')?.addEventListener('click', (e)=>{
+          e.preventDefault();
+          fetch('/logout', { credentials:'include' }).then(()=>location.href='/');
+        });
+      }
+    }
+    guard();
   </script>
 </body>
 </html>

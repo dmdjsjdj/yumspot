@@ -54,6 +54,7 @@
     e.preventDefault();
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
+
     try{
       const res = await fetch('/login', {
         method:'POST',
@@ -62,11 +63,12 @@
         body: JSON.stringify({ email, password })
       });
       const data = await res.json().catch(()=> ({}));
-      if(!res.ok) throw new Error(data.message || '로그인 실패');
+      if(!res.ok){ throw new Error(data.message || '로그인 실패'); }
       location.href = '/';
-    }catch(err){ alert(err.message || '오류'); }
+    }catch(err){
+      alert(err.message || '오류가 발생했습니다.');
+    }
   });
   </script>
-
 </body>
 </html>

@@ -41,49 +41,19 @@
     <div id="info" class="meta"></div>
   </div>
 
-<script>
-  document.addEventListener('DOMContentLoaded', async ()=>{
-    // 네비 상태
-    fetch('/check-auth', { credentials:'include' })
-      .then(r=>r.json())
-      .then(d=>{
-        const el = document.querySelector('.auth-links');
-        if(d.loggedIn && el){
-          el.innerHTML = `
-            <div style="position: relative;">
-              <button id="mypageBtn" style="background:none;border:none;color:#fff;cursor:pointer;">마이페이지 ▾</button>
-              <div id="mypageDropdown" style="display:none;position:absolute;right:0;background:#fff;color:#000;padding:10px;border-radius:6px;">
-                <a href="mypage.html" style="color:#000;text-decoration:none;">내 정보 확인</a><br>
-                <a href="#" id="logoutLink" style="color:#000;text-decoration:none;">로그아웃</a>
-              </div>
-            </div>`;
-          document.getElementById('mypageBtn')?.addEventListener('click', ()=>{
-            const dd = document.getElementById('mypageDropdown');
-            dd.style.display = dd.style.display==='none'?'block':'none';
-          });
-          document.getElementById('logoutLink')?.addEventListener('click', (e)=>{
-            e.preventDefault();
-            fetch('/logout', { credentials:'include' }).then(()=>location.href='/');
-          });
-        }
-      });
-
-    // 내 정보 불러오기
-    try{
-      const res = await fetch('/api/me', { credentials:'include' });
-      if(res.status === 401){ alert('로그인이 필요합니다.'); location.href='login.html'; return; }
-      const me = await res.json();
-
-      // === 화면에 뿌리기 ===
-      // 예시: 아래 id를 가진 요소가 mypage.html에 있어야 함
-      // <span id="email"></span>  <span id="nickname"></span>
-      document.getElementById('email') && (document.getElementById('email').textContent = me.email || '');
-      document.getElementById('nickname') && (document.getElementById('nickname').textContent = me.nickname || '');
-    }catch(e){
-      alert('오류가 발생했습니다.');
-    }
-  });
-</script>
-
+  <script>
+  async function loadMe(){
+    const r = await fetch('/check-auth'); const data = await r.json();
+    if(!data.loggedIn){ alert('로그인 후 이용 가능합니다.'); location.href='login.html'; return; }
+    const me = await fetch('/api/me').then(r=>r.json()).catch(()=>null);
+    document.getElementById('info').innerHTML = me ? `
+      <p>이메일: ${me.email}</p>
+      <p>닉네임: ${me.nickname}</p>
+      <button class="btn" onclick="logout()">로그아웃</button>
+    ` : '<p>정보를 불러오지 못했습니다.</p>';
+  }
+  function logout(){ fetch('/logout').then(()=>location.href='home.html'); }
+  window.onload = loadMe;
+  </script>
 </body>
 </html>

@@ -47,28 +47,23 @@
     <script>
     // 공통: 로그인 상태 반영
     (function initAuth(){
-        fetch('/check-auth', { credentials: 'include' })
-        .then(r=>r.json())
-        .then(d=>{
-            if(!d.loggedIn) return;
-            const el = document.querySelector('.auth-links');
-            if(!el) return;
-            el.innerHTML = `
-            <div style="position: relative;">
-                <button id="mypageBtn" style="background:none;border:none;color:#fff;cursor:pointer;">마이페이지 ▾</button>
-                <div id="mypageDropdown" style="display:none;position:absolute;right:0;background:#fff;color:#000;padding:10px;border-radius:6px;">
-                <a href="mypage.html" style="color:#000;text-decoration:none;">내 정보 확인</a><br>
-                <a href="#" id="logoutLink" style="color:#000;text-decoration:none;">로그아웃</a>
-                </div>
-            </div>`;
-            document.getElementById('mypageBtn')?.addEventListener('click', ()=>{
-            const dd = document.getElementById('mypageDropdown');
-            dd.style.display = dd.style.display==='none'?'block':'none';
-            });
-            document.getElementById('logoutLink')?.addEventListener('click', (e)=>{
-            e.preventDefault();
-            fetch('/logout', { credentials:'include' }).then(()=>location.href='/');
-            });
+        fetch('/check-auth').then(r=>r.json()).then(data=>{
+            if (data.loggedIn) {
+                const authLinks = document.querySelector('.auth-links');
+                authLinks.innerHTML = `
+                  <div style="position: relative;">
+                    <button id="mypageBtn" style="background:none;border:none;color:white;cursor:pointer;">마이페이지 ▾</button>
+                    <div id="mypageDropdown" style="display:none;position:absolute;right:0;background:white;color:black;padding:10px;border-radius:5px;">
+                      <a href="mypage.html" style="color:black;text-decoration:none;">내 정보 확인</a><br>
+                      <a href="editprofile.html" style="color:black;text-decoration:none;">프로필 수정</a><br>
+                      <a href="#" onclick="logout()" style="color:black;text-decoration:none;">로그아웃</a>
+                    </div>
+                  </div>`;
+                document.getElementById("mypageBtn").addEventListener("click",()=>{
+                    const d=document.getElementById("mypageDropdown");
+                    d.style.display = d.style.display === "none" ? "block" : "none";
+                });
+            }
         });
     })();
     function logout(){ fetch('/logout').then(()=>location.href='/'); }

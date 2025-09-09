@@ -48,25 +48,28 @@
     <p class="error" id="err"></p>
   </div>
 
-<script>
+  <script>
   document.getElementById('signupForm')?.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const email = document.getElementById('email').value.trim();
     const nickname = document.getElementById('nickname').value.trim();
     const password = document.getElementById('password').value;
+
     try{
       const res = await fetch('/signup', {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
-        credentials:'include',
+        credentials:'include', // 쿠키 세팅 위해
         body: JSON.stringify({ email, nickname, password })
       });
       const data = await res.json().catch(()=> ({}));
-      if(!res.ok) throw new Error(data.message || '회원가입 실패');
+      if(!res.ok){ throw new Error(data.message || '회원가입 실패'); }
+      // 가입 후 자동 로그인 쿠키가 세팅됨
       location.href = '/';
-    }catch(err){ alert(err.message || '오류'); }
+    }catch(err){
+      alert(err.message || '오류가 발생했습니다.');
+    }
   });
-</script>
-
+  </script>
 </body>
 </html>

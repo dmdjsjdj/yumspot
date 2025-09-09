@@ -1,220 +1,93 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>리뷰 작성</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #E3F2FD;
-            color: #333;
-            margin: 0;
-            padding: 0;
-        }
-        .header {
-            text-align: center;
-            padding: 20px;
-            font-size: 24px;
-            font-weight: bold;
-            background-color: #90CAF9;
-            color: white;
-        }
-        .header a {
-            color: white;
-            text-decoration: none;
-        }
-        .navbar {
-            background-color: #90CAF9;
-            padding: 15px;
-            text-align: center;
-            display: flex;
-            justify-content: center;
-        }
-        .navbar a {
-            color: white;
-            text-decoration: none;
-            margin: 0 10px;  
-            font-size: 18px;
-        }
-        .navbar .auth-links {
-            position: absolute;
-            right: 20px;
-        }
-        .navbar .auth-links a {
-            color: white;
-            font-size: 14px;
-            margin: 0 5px;  
-        }
-        .form-container {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            margin-top: 50px;
-        }
-        .form-container input, .form-container textarea, .form-container select {
-            width: 300px;
-            margin-bottom: 10px;
-            padding: 10px;
-            border-radius: 5px;
-            border: 1px solid #ddd;
-        }
-        .form-container button {
-            padding: 10px;
-            background-color: #64B5F6;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            width: 320px;
-        }
-        .form-container button:hover {
-            background-color: #42A5F5;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>리뷰 작성 - YumSpot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; background:#E3F2FD; margin:0; }
+    .header { text-align:center; padding:20px; font-size:24px; font-weight:bold; background:#90CAF9; color:#fff; }
+    .header a { color:#fff; text-decoration:none; }
+    .navbar { background:#90CAF9; padding:10px; display:flex; justify-content:space-between; align-items:center; }
+    .center-links { flex:1; display:flex; justify-content:center; gap:30px; margin-left:90px; }
+    .center-links a, .auth-links a { color:#fff; text-decoration:none; }
+    .auth-links { display:flex; gap:7px; }
+    .wrap { max-width:720px; margin:24px auto; background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,.1); }
+    input, select, textarea, button { width:100%; padding:12px; margin:8px 0; border:1px solid #64B5F6; border-radius:6px; }
+    textarea { min-height:140px; }
+    button { background:#64B5F6; color:#fff; border:none; font-weight:bold; cursor:pointer; }
+    button:hover { background:#42A5F5; }
+  </style>
 </head>
 <body>
-
-    <div class="header">
-        <a href="home.html">YumSpot - 맛집을 찾아보자!</a>
+  <div class="header"><a href="home.html">YumSpot - 맛집을 찾아보자!</a></div>
+  <div class="navbar">
+    <div class="center-links">
+      <a href="regionreview.html">지역별</a>
+      <a href="foodreview.html">음식</a>
+      <a href="myreview.html">내 리뷰</a>
     </div>
-    <div class="navbar">
-        <a href="regionreview.html">지역별</a>
-        <a href="foodreview.html">음식</a>
-        <a href="myreview.html">내 리뷰</a>
-        <div class="auth-links">
-            <a href="login.html" class="login">로그인</a>
-            <a href="signup.html" class="signup">회원가입</a>
-        </div>
+    <div class="auth-links">
+      <a href="login.html">로그인</a>
+      <a href="signup.html">회원가입</a>
     </div>
-    <!-- 리뷰 작성 폼 -->
-    <div class="form-container">
-        <h1>새 리뷰 작성</h1>
-        <input type="text" id="reviewTitle" placeholder="리뷰 제목" />
-        <input type="date" id="reviewDate" placeholder="날짜" />
-        <input type="text" id="restaurantName" placeholder="식당 이름" />
-        <input type="text" id="restaurantAddress" placeholder="식당 주소" />
-        <input type="file" id="reviewImage" accept="image/*" />
-        
-        <label for="rating">별점: </label>
-        <select id="rating">
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-        </select>
+  </div>
 
-        <label for="foodCategory">음식 카테고리:</label>
-        <select id="foodCategory">
-            <option value="">선택하세요</option>
-        </select>
+  <div class="wrap">
+    <h2>리뷰 작성</h2>
+    <form id="reviewForm">
+      <input id="title" placeholder="리뷰 제목" required>
+      <input id="restaurant_name" placeholder="식당 이름" required>
+      <input id="address" placeholder="주소 (복사/붙여넣기)" required>
+      <label>평점(1~5)</label>
+      <select id="rating" required>
+        <option value="">선택</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+      </select>
+      <label>음식 카테고리</label>
+      <select id="foodcategory" required></select>
+      <label>지역</label>
+      <select id="regionnames" required></select>
+      <textarea id="content" placeholder="후기 내용을 적어주세요" required></textarea>
+      <input id="image_url" placeholder="이미지 URL (선택)">
+      <button type="submit">등록</button>
+    </form>
+  </div>
 
-        <label for="regionNames">지역 카테고리:</label>
-        <select id="regionNames">
-            <option value="">선택하세요</option>
-        </select>
+  <script src="../utils/categoryLists.js"></script>
+  <script>
+    // 카테고리 세팅
+    (function initCats(){
+      if (window.foodCategories) {
+        const f = document.getElementById('foodcategory');
+        f.innerHTML = '<option value="">선택</option>' + foodCategories.map(c=>`<option>${c}</option>`).join('');
+      }
+      if (window.regionCategories) {
+        const r = document.getElementById('regionnames');
+        r.innerHTML = '<option value="">선택</option>' + regionCategories.map(c=>`<option>${c}</option>`).join('');
+      }
+    })();
 
-        
-        <textarea id="reviewContent" rows="4" placeholder="리뷰 내용을 입력하세요"></textarea>
-        
-        <button onclick="submitReview()">리뷰 제출</button>
-    </div>
-
-    <script src="categoryLists.js"></script>
-    <script>
-        function populateCategoryDropdowns() {
-            const foodSelect = document.getElementById("foodCategory");
-            const regionSelect = document.getElementById("regionNames");
-
-            foodCategories.forEach(category => {
-                const option = document.createElement("option");
-                option.value = category;
-                option.textContent = category;
-                foodSelect.appendChild(option);
-            });
-
-            regionCategories.forEach(region => {
-                const option = document.createElement("option");
-                option.value = region;
-                option.textContent = region;
-                regionSelect.appendChild(option);
-            });
-        }
-
-
-        async function submitReview() {
-            const imageFile = document.getElementById("reviewImage").files[0];
-            let imageUrl = "";
-
-            if (imageFile) {
-                imageUrl = await uploadImageToCloud(imageFile);  // 외부 업로드 먼저!
-            }
-
-            const formData = {
-                reviewTitle: document.getElementById("reviewTitle").value,
-                reviewDate: document.getElementById("reviewDate").value,
-                restaurantName: document.getElementById("restaurantName").value,
-                restaurantAddress: document.getElementById("restaurantAddress").value,
-                rating: document.getElementById("rating").value,
-                foodCategory: document.getElementById("foodCategory").value,
-                regionCategory: document.getElementById("regionNames").value,
-                reviewContent: document.getElementById("reviewContent").value,
-                reviewImageUrl: imageUrl  // URL만 백엔드로 보냄
-            };
-
-            fetch('https://yumspot.onrender.com/submit-review', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(formData)
-            })
-            .then(response => response.text())
-            .then(data => {
-                alert(data);
-                window.location.href = "/myreview.html";
-            })
-            .catch(error => {
-                console.error('오류 발생:', error);
-                alert('리뷰 저장 중 오류 발생!');
-            });
-        }
-
-
-        window.onload = function () {
-            populateCategoryDropdowns();
-        };
-
-    </script>
-       <script>
-    fetch('/check-auth')
-    .then(res => res.json())
-    .then(data => {
-        if (data.loggedIn) {
-        const authLinks = document.querySelector('.auth-links');
-        authLinks.innerHTML = `
-            <div style="position: relative;">
-                <button id="mypageBtn" style="background: none; border: none; color: white; cursor: pointer;">마이페이지 ▾</button>
-                <div id="mypageDropdown" style="display:none; position:absolute; right:0; background:white; color:black; padding:10px; border-radius:5px;">
-                    <a href="mypage.html" style="color: black; text-decoration: none;">내 정보 확인</a><br>
-                    <a href="#" onclick="logout()" style="color: black; text-decoration: none;">로그아웃</a>
-                </div>
-            </div>
-        `;
-
-        document.getElementById("mypageBtn").addEventListener("click", () => {
-            const dropdown = document.getElementById("mypageDropdown");
-            dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
+    document.getElementById('reviewForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const body = {
+        title: title.value.trim(),
+        restaurant_name: restaurant_name.value.trim(),
+        address: address.value.trim(),
+        rating: Number(rating.value),
+        foodcategory: foodcategory.value,
+        regionnames: regionnames.value,
+        content: content.value.trim(),
+        image_url: image_url.value.trim() || null
+      };
+      try{
+        const res = await fetch('/api/reviews', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
         });
-        }
+        if(!res.ok) throw new Error('등록 실패');
+        alert('리뷰 등록 완료!');
+        location.href = 'myreview.html';
+      }catch(e){ alert(e.message); }
     });
-
-    function logout() {
-    fetch("/logout")
-        .then(() => window.location.href = "home.html");
-    }
-    </script>
+  </script>
 </body>
 </html>

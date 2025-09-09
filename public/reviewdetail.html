@@ -1,174 +1,109 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>리뷰 상세</title>
-    <style>
-        /* 기존 home.html 디자인과 동일한 스타일 */
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #E3F2FD;
-            color: #333;
-            margin: 0;
-            padding: 0;
-        }
-
-        .header {
-        text-align: center;
-        padding: 20px;
-        font-size: 24px;
-        font-weight: bold;
-        background-color: #90CAF9;
-        color: white;
-        }
-
-        .header a {
-        color: white;
-        text-decoration: none;
-        }
-
-        .navbar {
-            background-color: #90CAF9;
-            padding: 10px ;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .navbar a:hover {
-            color: #1565C0; /* 좀 더 진한 파란색으로 변경 */
-            text-decoration: none;
-        }
-
-        .center-links {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            margin-left: 90px;
-        }
-
-        .center-links a {
-            text-decoration: none;
-            color: white;
-            font-size: 18px;
-        }
-
-        .auth-links {
-            display: flex;
-            gap: 7px; /* 간격 줄임 */
-        }
-
-        .auth-links a {
-            text-decoration: none;
-            color: white;
-            font-size: 14px;  /* 글씨 크기 줄임 */
-            font-weight: normal;  /* 볼드 해제 */
-        }
-        .container {
-            padding: 30px;
-            max-width: 800px;
-            margin: auto;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            margin-top: 40px;
-        }
-        img {
-            max-width: 60%;
-            height: auto;
-            margin-top: 20px;
-        }
-        .review-image {
-            max-width: 400px;
-            width: 100%;
-            height: auto;
-            display: block;
-            margin: 20px auto;
-            border-radius: 8px;
-        }
-
-    </style>
+  <meta charset="UTF-8">
+  <title>리뷰 상세 - YumSpot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; background:#E3F2FD; margin:0; }
+    .header { text-align:center; padding:20px; font-size:24px; font-weight:bold; background:#90CAF9; color:#fff; }
+    .header a { color:#fff; text-decoration:none; }
+    .navbar { background:#90CAF9; padding:10px; display:flex; justify-content:space-between; align-items:center; }
+    .center-links { flex:1; display:flex; justify-content:center; gap:30px; margin-left:90px; }
+    .center-links a, .auth-links a { color:#fff; text-decoration:none; }
+    .auth-links { display:flex; gap:7px; }
+    .container { max-width:860px; margin:20px auto; padding:0 10px; }
+    .card { background:#fff; border-radius:8px; padding:20px; box-shadow:0 2px 5px rgba(0,0,0,.1); }
+    .rating { letter-spacing:1px; }
+    .empty { opacity:.4; }
+    .top { display:flex; justify-content:space-between; align-items:center; }
+    .btn { padding:10px 14px; background:#64B5F6; color:#fff; border:none; border-radius:6px; cursor:pointer; }
+    img { max-width:100%; border-radius:8px; margin:12px 0; }
+    .meta { color:#555; font-size:14px; }
+  </style>
 </head>
 <body>
-    <div class="header">
-        <a href="home.html">YumSpot - 맛집을 찾아보자!</a>
+  <div class="header"><a href="home.html">YumSpot - 맛집을 찾아보자!</a></div>
+  <div class="navbar">
+    <div class="center-links">
+      <a href="regionreview.html">지역별</a>
+      <a href="foodreview.html">음식</a>
+      <a href="myreview.html">내 리뷰</a>
     </div>
-    <div class="navbar">
-        <div class="center-links">
-            <a href="regionreview.html">지역별</a>
-            <a href="foodreview.html">음식</a>
-            <a href="myreview.html">내 리뷰</a>
-        </div>
-        <div class="auth-links">
-            <a href="login.html">로그인</a>
-            <a href="signup.html">회원가입</a>
-        </div>
+    <div class="auth-links">
+      <a href="login.html">로그인</a>
+      <a href="signup.html">회원가입</a>
     </div>
+  </div>
 
-    <div class="container">
-        <h2 id="reviewTitle">로딩 중...</h2>
-        <p id="reviewDate"></p>
-        <p id="reviewRestaurant"></p>
-        <p id="reviewAddress"></p>
-        <p id="reviewRating"></p>
-        <p id="reviewContent"></p>
-        <img id="reviewImage" src="" alt="리뷰 이미지" class="review-image" />
-    </div>
+  <div class="container">
+    <div id="card" class="card"></div>
+  </div>
 
     <script>
-        function getReviewIdFromURL() {
-            const params = new URLSearchParams(window.location.search);
-            return params.get("id");
-        }
+        const params = new URLSearchParams(location.search);
+        const id = params.get('id');
 
-        async function fetchReviewDetail() {
-            const reviewId = getReviewIdFromURL();
-            const res = await fetch(`/get-review/${reviewId}`);
-            if (!res.ok) {
-                document.getElementById("reviewTitle").innerText = "리뷰를 불러올 수 없습니다.";
-                return;
+        async function loadDetail(){
+            const el = document.getElementById('card');
+            el.innerHTML = '';
+            try{
+            const res = await fetch(`/api/reviews/${id}`);
+            if(!res.ok) throw new Error('불러오기 실패');
+            const rv = await res.json();
+
+            // 소유자 판단: isOwner 우선, 없으면 me.id와 rv.user_id 비교
+            let isOwner = !!rv.isOwner;
+            if(!isOwner && rv.user_id !== undefined){
+                try {
+                const me = await fetch('/api/me').then(r=>r.ok?r.json():null);
+                if(me && (me.id === rv.user_id || me.user_id === rv.user_id)) isOwner = true;
+                } catch(_) {}
             }
-            const review = await res.json();
 
-            document.getElementById("reviewTitle").innerText = review.title;
-            document.getElementById("reviewDate").innerText = `날짜: ${review.date}`;
-            document.getElementById("reviewRestaurant").innerText = `식당명: ${review.restaurant_name}`;
-            document.getElementById("reviewAddress").innerText = `주소: ${review.address}`;
-            document.getElementById("reviewRating").innerText = `별점: ${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}`;
-            document.getElementById("reviewContent").innerText = `한줄평: ${review.content}`;
-            document.getElementById("reviewImage").src = review.image_url;
-        }
-
-        window.onload = fetchReviewDetail;
-    </script>
-       <script>
-    fetch('/check-auth')
-    .then(res => res.json())
-    .then(data => {
-        if (data.loggedIn) {
-        const authLinks = document.querySelector('.auth-links');
-        authLinks.innerHTML = `
-            <div style="position: relative;">
-                <button id="mypageBtn" style="background: none; border: none; color: white; cursor: pointer;">마이페이지 ▾</button>
-                <div id="mypageDropdown" style="display:none; position:absolute; right:0; background:white; color:black; padding:10px; border-radius:5px;">
-                    <a href="mypage.html" style="color: black; text-decoration: none;">내 정보 확인</a><br>
-                    <a href="#" onclick="logout()" style="color: black; text-decoration: none;">로그아웃</a>
+            const stars='★'.repeat(rv.rating)+'<span class="empty">'+'☆'.repeat(5-rv.rating)+'</span>';
+            el.innerHTML = `
+                <div class="top">
+                <h2>${rv.title}</h2>
+                <div>
+                    ${isOwner ? `
+                    <button class="btn" id="editBtn">수정</button>
+                    <button class="btn" id="delBtn" style="background:#ef5350;">삭제</button>
+                    ` : ``}
+                    <button class="btn" onclick="history.back()">뒤로</button>
                 </div>
-            </div>
-        `;
+                </div>
+                <p class="rating">${stars}</p>
+                <p class="meta">카테고리: ${rv.foodcategory ?? '-'} | 지역: ${rv.regionnames ?? '-'}</p>
+                <p class="meta">식당: ${rv.restaurant_name ?? ''}</p>
+                <p class="meta">주소: <span id="addr">${rv.address ?? ''}</span> <button class="btn" style="padding:6px 10px;" onclick="copyAddr()">복사</button></p>
+                ${rv.image_url ? `<img src="${rv.image_url}" alt="review image">` : ''}
+                <p>${(rv.content||'').replace(/\n/g,'<br>')}</p>
+            `;
 
-        document.getElementById("mypageBtn").addEventListener("click", () => {
-            const dropdown = document.getElementById("mypageDropdown");
-            dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
-        });
+            if(isOwner){
+                document.getElementById('editBtn').addEventListener('click', ()=>{
+                location.href = `editreview.html?id=${rv.id}`;
+                });
+                document.getElementById('delBtn').addEventListener('click', async ()=>{
+                if(!confirm('이 리뷰를 삭제하시겠습니까?')) return;
+                try{
+                    const r = await fetch(`/api/reviews/${rv.id}`, { method:'DELETE' });
+                    if(!r.ok) throw new Error('삭제 실패');
+                    alert('삭제되었습니다.');
+                    location.href = 'myreview.html';
+                }catch(e){ alert(e.message || '삭제에 실패했습니다.'); }
+                });
+            }
+            }catch(e){
+            document.getElementById('card').innerHTML = '<p>리뷰를 불러오지 못했습니다.</p>';
+            }
         }
-    });
-
-    function logout() {
-    fetch("/logout")
-        .then(() => window.location.href = "home.html");
-    }
+        function copyAddr(){
+            const txt = document.getElementById('addr').textContent;
+            navigator.clipboard.writeText(txt).then(()=>alert('주소가 복사되었습니다.'));
+        }
+        window.onload = loadDetail;
     </script>
 </body>
 </html>

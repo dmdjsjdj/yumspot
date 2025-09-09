@@ -1,230 +1,76 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YumSpot - 맛집을 찾아보자!</title>
-      <!-- Font Awesome CDN -->
-    <link
-        rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
-    />
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #E3F2FD;
-            color: #333;
-            margin: 0;
-            padding: 0;
-        }
-        .header {
-            text-align: center;
-            padding: 20px;
-            font-size: 24px;
-            font-weight: bold;
-            background-color: #90CAF9;
-            color: white;
-        }
-        .header a {
-            color: white;
-            text-decoration: none;
-        }
-        .navbar {
-            background-color: #90CAF9;
-            padding: 15px;
-            text-align: center;
-            display: flex;
-            justify-content: center;
-        }
-        .navbar a {
-            color: white;
-            text-decoration: none;
-            margin: 0 10px;  /* 간격을 줄였어 */
-            font-size: 18px;
-        }
-        .navbar .auth-links {
-            position: absolute;
-            right: 20px;
-        }
-        .navbar .auth-links a {
-            color: white;
-            font-size: 14px;
-            margin: 0 5px;  /* 간격을 줄였어 */
-        }
-        .hero {
-            text-align: center;
-            padding: 50px;
-        }
-        .hero input {
-            width: 60%;
-            padding: 10px;
-            border: 2px solid #64B5F6;
-            border-radius: 5px;
-        }
-        .form-container {
-            max-width: 400px;
-            margin: 50px auto;
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .form-container h2 {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .form-container input {
-            width: 90%;
-            padding: 12px;
-            margin-bottom: 15px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        .form-container button {
-            width: 100%;
-            padding: 12px;
-            background-color: #424242;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-        .form-container .extra-links {
-            text-align: center;
-            margin-top: 15px;
-            font-size: 14px;
-        }
-        .form-group {
-            position: relative;
-            /*max-width: 300px;*/
-            margin-bottom: 20px;
-        }
-        .form-group input {
-            width: 97%;
-            padding: 12px 40px 12px 12px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            box-sizing: border-box;
-        }
-        .form-group i {
-            position: absolute;
-            top: 40%;
-            transform: translateY(-50%);
-            right: 25px;
-            cursor: pointer;
-            color: #888;
-        }
-        .login-ing input {
-            position: absolute;
-            margin-bottom: 30px;
-        }
-        .remember-container {
-            align-items: center;
-            margin-bottom: 15px;
-            font-size: 14px;
-            white-space: nowrap;
-            color: #555;
-        }
-        .remember-container input[type="checkbox"] {
-            position: relative;
-            top: 4px; /* 체크박스를 약간 위로 */
-            margin-left: -160px; /* 텍스트와 간격 */
-            vertical-align: middle;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>로그인 - YumSpot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; background:#E3F2FD; margin:0; }
+    .header { text-align:center; padding:20px; font-size:24px; font-weight:bold; background:#90CAF9; color:#fff; }
+    .header a { color:#fff; text-decoration:none; }
+    .navbar { background:#90CAF9; padding:10px; display:flex; justify-content:space-between; align-items:center; }
+    .center-links { flex:1; display:flex; justify-content:center; gap:30px; margin-left:90px; }
+    .center-links a, .auth-links a { color:#fff; text-decoration:none; }
+    .auth-links { display:flex; gap:7px; }
+    .form-container { max-width:400px; margin:40px auto; background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,.1); }
+    .form-container h2 { margin-top:0; text-align:center; }
+    input, button { width:100%; padding:12px; margin:8px 0; border:1px solid #64B5F6; border-radius:6px; }
+    button { background:#64B5F6; color:#fff; border:none; font-weight:bold; cursor:pointer; }
+    button:hover { background:#42A5F5; }
+    .helper { text-align:right; font-size:14px; }
+    .error { color:#c62828; font-size:14px; }
+  </style>
 </head>
 <body>
-    <div class="header">
-        <a href="home.html">YumSpot - 맛집을 찾아보자!</a>
+  <div class="header">
+    <a href="home.html">YumSpot - 맛집을 찾아보자!</a>
+  </div>
+  <div class="navbar">
+    <div class="center-links">
+      <a href="regionreview.html">지역별</a>
+      <a href="foodreview.html">음식</a>
+      <a href="myreview.html">내 리뷰</a>
     </div>
-    <div class="navbar">
-        <a href="regionreview.html">지역별</a>
-        <a href="foodreview.html">음식</a>
-        <a href="myreview.html">내 리뷰</a>
-        <div class="auth-links">
-            <a href="login.html" class="login">로그인</a>
-            <a href="signup.html" class="signup">회원가입</a>
-        </div>
+    <div class="auth-links">
+      <a href="login.html">로그인</a>
+      <a href="signup.html">회원가입</a>
     </div>
+  </div>
 
-    <!-- 로그인 폼 -->
-    <div class="form-container">
-        <h2>로그인</h2>
-        <input type="text" id="username" placeholder="아이디">
+  <div class="form-container">
+    <h2>로그인</h2>
+    <form id="loginForm">
+      <input id="email" type="email" placeholder="이메일" required>
+      <input id="password" type="password" placeholder="비밀번호" required>
+      <button type="submit">로그인</button>
+      <p class="helper"><a href="findpassword.html">비밀번호 찾기</a></p>
+    </form>
+    <p class="error" id="err"></p>
+  </div>
 
-        <div class="form-group">
-            <input type="password" id="password" placeholder="비밀번호">
-            <i class="fas fa-eye" id="togglePassword"></i>
-        </div>
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const err = document.getElementById('err');
+      err.textContent = '';
 
-        <div class="remember-container">
-            <label for="rememberMe">로그인 상태 유지</label>
-            <input type="checkbox" id="rememberMe">
-        </div>
-
-        <button onclick="login()">로그인</button>
-
-        <!-- 👇 비밀번호 찾기 추가 -->
-        <div style="margin-top: 15px; text-align: center;">
-            <a href="findpassword.html" style="color: #424242; font-size: 14px; text-decoration: underline;">비밀번호 찾기</a>
-        </div>
-
-        <div style="text-align:center; margin: 30px 0; border: 1px solid #eee; padding: 20px;">
-            <strong>아직 회원이 아니신가요?</strong>
-            <br><br>
-            <a href="signup.html">
-                <button style="width: auto; background: white; color: black; border: 1px solid #aaa;">회원가입</button>
-            </a>
-        </div>
-    </div>
-
-    <script>
-      const toggleIcon = document.getElementById('togglePassword');
-      const passwordInput = document.getElementById('password'); 
-
-    toggleIcon.addEventListener('click', () => {
-      const type = passwordInput.getAttribute('type');
-      if (type === 'password') {
-        passwordInput.setAttribute('type', 'text');
-        toggleIcon.classList.remove('fa-eye');
-        toggleIcon.classList.add('fa-eye-slash');
-      } else {
-        passwordInput.setAttribute('type', 'password');
-        toggleIcon.classList.remove('fa-eye-slash');
-        toggleIcon.classList.add('fa-eye');
+      try{
+        const res = await fetch('/login', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ email, password })
+        });
+        if(!res.ok){
+          const {message} = await res.json().catch(()=>({message:'로그인 실패'}));
+          throw new Error(message || '로그인 실패');
+        }
+        location.href = 'home.html';
+      }catch(e){
+        err.textContent = e.message;
       }
     });
-    function login() {
-        const username = document.getElementById("username").value.trim();
-        const password = document.getElementById("password").value.trim();
-
-        // 입력값 검사
-        if (!username || !password) {
-            alert("아이디와 비밀번호를 모두 입력하세요.");
-            return;
-        }
-
-        fetch("http://localhost:3000/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                alert(data.message || "로그인 성공");
-                window.location.href = "home.html";
-            } else {
-                alert(data.message || "아이디 또는 비밀번호가 올바르지 않습니다.");
-            }
-        })
-        .catch(err => {
-            console.error("로그인 중 에러 발생:", err);
-            alert("서버 오류가 발생했습니다.");
-        });
-    }
-    </script>
-
+  </script>
 </body>
 </html>

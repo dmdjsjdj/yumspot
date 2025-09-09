@@ -1,102 +1,63 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>내 정보 수정</title>
+  <meta charset="UTF-8">
+  <title>프로필 수정 - YumSpot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body {
-      font-family: Arial;
-      background-color: #E3F2FD;
-      padding: 40px;
-    }
-    .container {
-      background: white;
-      max-width: 500px;
-      margin: 0 auto;
-      padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    }
-    h2 {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-    input {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      margin-bottom: 20px;
-      border-radius: 5px;
-      border: 1px solid #ccc;
-    }
-    button {
-      width: 100%;
-      padding: 12px;
-      background-color: #42A5F5;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      font-size: 16px;
-    }
+    body { font-family: Arial, sans-serif; background:#E3F2FD; margin:0; }
+    .header { text-align:center; padding:20px; font-size:24px; font-weight:bold; background:#90CAF9; color:#fff; }
+    .header a { color:#fff; text-decoration:none; }
+    .navbar { background:#90CAF9; padding:10px; display:flex; justify-content:space-between; align-items:center; }
+    .center-links { flex:1; display:flex; justify-content:center; gap:30px; margin-left:90px; }
+    .center-links a, .auth-links a { color:#fff; text-decoration:none; }
+    .auth-links { display:flex; gap:7px; }
+    .wrap { max-width:560px; margin:24px auto; background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,.1); }
+    input, button { width:100%; padding:12px; margin:8px 0; border:1px solid #64B5F6; border-radius:6px; }
+    button { background:#64B5F6; color:#fff; border:none; font-weight:bold; cursor:pointer; }
+    button:hover { background:#42A5F5; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>내 정보 수정</h2>
-    <input type="password" id="newPassword" placeholder="새 비밀번호"/>
-    <input type="text" id="nickname" placeholder="새 닉네임"/>
-    <button onclick="updateProfile()">수정하기</button>
+  <div class="header"><a href="home.html">YumSpot - 맛집을 찾아보자!</a></div>
+  <div class="navbar">
+    <div class="center-links">
+      <a href="regionreview.html">지역별</a>
+      <a href="foodreview.html">음식</a>
+      <a href="myreview.html">내 리뷰</a>
+    </div>
+    <div class="auth-links">
+      <a href="login.html">로그인</a>
+      <a href="signup.html">회원가입</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <h2>프로필 수정</h2>
+    <form id="form">
+      <input id="nickname" placeholder="닉네임">
+      <button type="submit">저장</button>
+    </form>
   </div>
 
   <script>
-    function updateProfile() {
-        const newNickname = document.getElementById("nickname").value;
-
-        fetch("/update-profile", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ nickname: newNickname })
-        })
-        .then(res => res.text())
-        .then(msg => {
-            alert(msg);
-            window.location.href = "home.html";  // ✅ 수정 후 홈으로 이동
-        })
-        .catch(err => {
-            console.error(err);
-            alert("프로필 수정 실패");
-        });
-    }
+  async function init(){
+    const r = await fetch('/check-auth'); const data = await r.json();
+    if(!data.loggedIn){ alert('로그인 후 이용 가능합니다.'); location.href='login.html'; return; }
+    const me = await fetch('/api/me').then(r=>r.json()).catch(()=>null);
+    if(me){ document.getElementById('nickname').value = me.nickname || ''; }
+  }
+  document.getElementById('form').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const nickname = document.getElementById('nickname').value.trim();
+    try{
+      const res = await fetch('/api/me', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nickname }) });
+      if(!res.ok) throw new Error('수정 실패');
+      alert('수정 완료!');
+      location.href='mypage.html';
+    }catch(e){ alert(e.message); }
+  });
+  window.onload = init;
   </script>
-  <script>
-    fetch('/check-auth')
-    .then(res => res.json())
-    .then(data => {
-        if (data.loggedIn) {
-        const authLinks = document.querySelector('.auth-links');
-        authLinks.innerHTML = `
-            <div style="position: relative;">
-                <button id="mypageBtn" style="background: none; border: none; color: white; cursor: pointer;">마이페이지 ▾</button>
-                <div id="mypageDropdown" style="display:none; position:absolute; right:0; background:white; color:black; padding:10px; border-radius:5px;">
-                    <a href="mypage.html" style="color: black; text-decoration: none;">내 정보 확인</a><br>
-                    <a href="#" onclick="logout()" style="color: black; text-decoration: none;">로그아웃</a>
-                </div>
-            </div>
-        `;
-
-        document.getElementById("mypageBtn").addEventListener("click", () => {
-            const dropdown = document.getElementById("mypageDropdown");
-            dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
-        });
-        }
-    });
-
-    function logout() {
-    fetch("/logout")
-        .then(() => window.location.href = "home.html");
-    }
-    </script>
-
 </body>
 </html>

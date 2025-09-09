@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>리뷰 수정 - YumSpot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; background:#E3F2FD; margin:0; }
+    .header { text-align:center; padding:20px; font-size:24px; font-weight:bold; background:#90CAF9; color:#fff; }
+    .header a { color:#fff; text-decoration:none; }
+    .navbar { background:#90CAF9; padding:10px; display:flex; justify-content:space-between; align-items:center; }
+    .center-links { flex:1; display:flex; justify-content:center; gap:30px; margin-left:90px; }
+    .center-links a, .auth-links a { color:#fff; text-decoration:none; }
+    .auth-links { display:flex; gap:7px; }
+
+    .wrap { max-width:720px; margin:24px auto; background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,.1); }
+    input, select, textarea, button { width:100%; padding:12px; margin:8px 0; border:1px solid #64B5F6; border-radius:6px; }
+    textarea { min-height:140px; }
+    button { background:#64B5F6; color:#fff; border:none; font-weight:bold; cursor:pointer; }
+    button:hover { background:#42A5F5; }
+    .row { display:flex; gap:8px; }
+    .row > * { flex:1; }
+  </style>
+</head>
+<body>
+  <div class="header"><a href="home.html">YumSpot - 맛집을 찾아보자!</a></div>
+  <div class="navbar">
+    <div class="center-links">
+      <a href="regionreview.html">지역별</a>
+      <a href="foodreview.html">음식</a>
+      <a href="myreview.html">내 리뷰</a>
+    </div>
+    <div class="auth-links">
+      <a href="login.html">로그인</a>
+      <a href="signup.html">회원가입</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <h2>리뷰 수정</h2>
+    <form id="form">
+      <input id="title" placeholder="리뷰 제목" required>
+      <div class="row">
+        <input id="restaurant_name" placeholder="식당 이름" required>
+        <input id="address" placeholder="주소" required>
+      </div>
+      <div class="row">
+        <select id="rating" required>
+          <option value="">평점</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+        </select>
+        <select id="foodcategory" required></select>
+        <select id="regionnames" required></select>
+      </div>
+      <textarea id="content" placeholder="후기 내용을 적어주세요" required></textarea>
+      <input id="image_url" placeholder="이미지 URL (선택)">
+      <div class="row">
+        <button type="submit">저장</button>
+        <button type="button" id="cancelBtn" style="background:#90CAF9;">취소</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="../utils/categoryLists.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const id = params.get('id');
+
+    // 카테고리 초기화
+    function initCats(){
+      const f = document.getElementById('foodcategory');
+      const r = document.getElementById('regionnames');
+      f.innerHTML = '<option value="">음식</option>' + (window.foodCategories||[]).map(c=>`<option>${c}</option>`).join('');
+      r.innerHTML = '<option value="">지역</option>' + (window.regionCategories||[]).map(c=>`<option>${c}</option>`).join('');
+    }
+
+    async function requireAuth(){
+      const r = await fetch('/check-auth'); const data = await r.json();
+      if(!data.loggedIn){ alert('로그인 후 이용 가능합니다.'); location.href='login.html'; return false; }
+      return true;
+    }
+
+    async function loadExisting(){
+      if(!(await requireAuth())) return;
+      initCats();
+      try{
+        const res = await fetch(`/api/reviews/${id}`);
+        if(!res.ok) throw new Error('불러오기 실패');
+        const rv = await res.json();
+        // (선택) 소유자 체크: 서버에서 차단하는 게 안전하지만, 프런트에서도 간단 확인
+        if(rv.isOwner === false){ alert('수정 권한이 없습니다.'); location.href='reviewdetail.html?id='+id; return; }
+
+        title.value = rv.title ?? '';
+        restaurant_name.value = rv.restaurant_name ?? '';
+        address.value = rv.address ?? '';
+        rating.value = rv.rating ?? '';
+        foodcategory.value = rv.foodcategory ?? '';
+        regionnames.value = rv.regionnames ?? '';
+        content.value = rv.content ?? '';
+        image_url.value = rv.image_url ?? '';
+      }catch(e){ alert(e.message || '리뷰 정보를 불러오지 못했습니다.'); }
+    }
+
+    document.getElementById('form').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const body = {
+        title: title.value.trim(),
+        restaurant_name: restaurant_name.value.trim(),
+        address: address.value.trim(),
+        rating: Number(rating.value),
+        foodcategory: foodcategory.value,
+        regionnames: regionnames.value,
+        content: content.value.trim(),
+        image_url: image_url.value.trim() || null
+      };
+      try{
+        const res = await fetch(`/api/reviews/${id}`, {
+          method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+        });
+        if(!res.ok) throw new Error('수정 실패');
+        alert('수정되었습니다.');
+        location.href = `reviewdetail.html?id=${id}`;
+      }catch(e){ alert(e.message || '수정에 실패했습니다.'); }
+    });
+
+    document.getElementById('cancelBtn').addEventListener('click', ()=>{
+      if(confirm('수정을 취소하시겠습니까? 변경사항이 저장되지 않습니다.')){
+        history.back();
+      }
+    });
+
+    window.onload = loadExisting;
+  </script>
+</body>
+</html>

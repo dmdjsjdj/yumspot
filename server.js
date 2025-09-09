@@ -1,369 +1,226 @@
-import express from 'express';
-import bodyParser from 'body-parser';
-import cors from 'cors';
-import multer from 'multer';
 import dotenv from 'dotenv';
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import cookieParser from 'cookie-parser';
-import { createClient } from '@supabase/supabase-js';
-//import cloudinaryModule from 'cloudinary';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import pkg from 'pg';
-import { Readable } from 'stream';
-import { v2 as cloudinary } from 'cloudinary';
-
-const { regionCategories, foodCategories } = require('./utils/categoryLists');
-
-const { Pool } = pkg;
-
 dotenv.config();
 
+import express from 'express';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import bodyParser from 'body-parser';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { supabase } from './supabaseClient.js';
+
+const app = express();
+const PORT = process.env.PORT || 3000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
-
-
-const app = express();
-app.use(cors());
+// middleware
+app.use(cors({ origin: true, credentials: true }));
 app.use(bodyParser.json());
 app.use(cookieParser());
-
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-const jwtSecret = process.env.JWT_SECRET;
-
-// 클라우디너리 설정
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-//카테고리 불러오기
-app.get('/api/categories/food', (req, res) => {
-  res.json(foodCategories);
-});
-
-// 지역 카테고리 반환
-app.get('/api/categories/region', (req, res) => {
-  res.json(regionCategories);
-});
-
-// 정적 파일
 app.use(express.static(path.join(__dirname, 'public')));
 
-const pgPool = new Pool({
-  host: process.env.PGHOST,
-  port: process.env.PGPORT,
-  user: process.env.PGUSER,
-  password: process.env.PGPASSWORD,
-  database: process.env.PGDATABASE,
-  ssl: {
-    rejectUnauthorized: false,
-  },
-});
+const COOKIE_NAME = process.env.COOKIE_NAME || 'ysid';
+const JWT_SECRET = process.env.JWT_SECRET || 'change-me';
 
-
-// JWT 인증 미들웨어
-function verifyToken(req, res, next) {
-  const token = req.cookies.token;
-  if (!token) return res.status(401).send("로그인 필요");
-
-  jwt.verify(token, jwtSecret, (err, decoded) => {
-    if (err) return res.status(403).send("토큰 오류");
-    req.user = decoded;
-    next();
+// --- helpers ---
+function setAuthCookie(res, payload) {
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  res.cookie(COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 7 * 24 * 60 * 60 * 1000
   });
 }
 
-// 기본 페이지
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'home.html'));
-});
+function authMiddleware(req, _res, next) {
+  const token = req.cookies[COOKIE_NAME];
+  if (!token) { req.user = null; return next(); }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded; // { id, email, nickname }
+  } catch {
+    req.user = null;
+  }
+  next();
+}
+app.use(authMiddleware);
 
-// 회원가입
+function requireLogin(req, res, next) {
+  if (!req.user) return res.status(401).json({ message: '로그인이 필요합니다.' });
+  next();
+}
+
+// --- Auth ---
 app.post('/signup', async (req, res) => {
-  const { username, password, nickname } = req.body;
-  if (!username || !password || !nickname) return res.status(400).send("모든 필드를 입력해주세요");
-
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const { data, error } = await supabase
-      .from('users')
-      .insert([
-        { 
-          username, 
-          password: hashedPassword, 
-          nickname,
-        }
-      ]);
+    const { email, nickname, password } = req.body || {};
+    if (!email || !nickname || !password) return res.status(400).json({ message: '필수 항목 누락' });
 
-    if (error) throw error;
-    res.status(201).send('회원가입 성공');
+    const { data: exists, error: e1 } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
+    if (e1) throw e1;
+    if (exists) return res.status(409).json({ message: '이미 가입된 이메일' });
+
+    const password_hash = await bcrypt.hash(password, 10);
+    const { data: user, error: e2 } = await supabase.from('users')
+      .insert([{ email, nickname, password_hash }])
+      .select('id, email, nickname').single();
+    if (e2) throw e2;
+
+    // 가입 후 자동 로그인으로 바꾸고 싶으면 다음 2줄 사용
+    setAuthCookie(res, { id: user.id, email: user.email, nickname: user.nickname });
+    res.json({ ok: true });
   } catch (err) {
-    console.error('회원가입 오류:', err);
-    res.status(500).send('서버 오류');
+    res.status(500).json({ message: '회원가입 실패', detail: String(err.message || err) });
   }
 });
 
-// 로그인
 app.post('/login', async (req, res) => {
-  const { username, password, remember } = req.body;
-
   try {
-    // 사용자 조회
+    const { email, password } = req.body || {};
+    if (!email || !password) return res.status(400).json({ message: '필수 항목 누락' });
+
     const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('username', username)
-      .single();
+      .from('users').select('id, email, nickname, password_hash').eq('email', email).maybeSingle();
+    if (error) throw error;
+    if (!user) return res.status(401).json({ message: '이메일 또는 비밀번호가 틀립니다.' });
 
-    if (error || !user) {
-      return res.status(401).send('존재하지 않는 사용자입니다.');
-    }
+    const ok = await bcrypt.compare(password, user.password_hash);
+    if (!ok) return res.status(401).json({ message: '이메일 또는 비밀번호가 틀립니다.' });
 
-    // 비밀번호 비교 (입력값 vs DB의 해시)
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return res.status(401).send('비밀번호가 일치하지 않습니다.');
-    }
-
-    // JWT 토큰 생성
-    const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, {
-      expiresIn: remember ? '7d' : '1h',
-    });
-
-    // 쿠키로 토큰 설정
-    res.cookie('token', token, {
-      httpOnly: true,
-      maxAge: remember ? 7 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000, // 7일 or 1시간
-    });
-
-    res.send('로그인 성공');
+    setAuthCookie(res, { id: user.id, email: user.email, nickname: user.nickname });
+    res.json({ ok: true });
   } catch (err) {
-    console.error(err);
-    res.status(500).send('서버 오류');
+    res.status(500).json({ message: '로그인 실패', detail: String(err.message || err) });
   }
 });
 
-// 로그아웃
 app.get('/logout', (req, res) => {
-  res.clearCookie('token');
-  res.send("로그아웃 성공");
+  res.clearCookie(COOKIE_NAME);
+  res.json({ ok: true });
 });
 
-// 사용자 인증 상태 확인
 app.get('/check-auth', (req, res) => {
-  const token = req.cookies.token;
-  if (!token) return res.json({ loggedIn: false });
-
-  jwt.verify(token, jwtSecret, (err, decoded) => {
-    if (err) return res.json({ loggedIn: false });
-    res.json({ loggedIn: true, user: decoded });
-  });
+  res.json({ loggedIn: !!req.user });
 });
 
-// 비밀번호 변경
-app.post('/find-password', async (req, res) => {
-  const { username, nickname, newPassword } = req.body;
-
-  try {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('username', username)
-      .eq('nickname', nickname)
-      .single();
-
-    if (error || !data) {
-      return res.status(400).send('사용자 정보를 찾을 수 없습니다.');
-    }
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({ password: hashedPassword })
-      .eq('id', data.id);
-
-    if (updateError) {
-      return res.status(500).send('비밀번호 변경 중 오류 발생');
-    }
-
-    res.status(200).send('비밀번호가 성공적으로 변경되었습니다.');
-  } catch (err) {
-    res.status(500).send('서버 오류');
-  }
+app.get('/api/me', requireLogin, async (req, res) => {
+  const { data, error } = await supabase.from('users')
+    .select('id, email, nickname').eq('id', req.user.id).single();
+  if (error) return res.status(500).json({ message: '조회 실패' });
+  res.json(data);
 });
 
-
-//내 정보 불러오기
-app.get('/mypage', verifyToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { data, error } = await supabase
-      .from('users')
-      .select('username, nickname')
-      .eq('id', userId)
-      .single();
-
-    if (error) return res.status(500).send('정보 불러오기 실패');
-
-    res.json(data);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('서버 오류');
-  }
+app.put('/api/me', requireLogin, async (req, res) => {
+  const { nickname } = req.body || {};
+  const { error } = await supabase.from('users').update({ nickname }).eq('id', req.user.id);
+  if (error) return res.status(500).json({ message: '수정 실패' });
+  // 쿠키 닉네임도 갱신
+  setAuthCookie(res, { ...req.user, nickname });
+  res.json({ ok: true });
 });
 
-// 프로필 수정
-app.put('/mypage', verifyToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { nickname, password } = req.body;
-
-    if (!nickname && !password) {
-      return res.status(400).send('수정할 내용이 없습니다.');
-    }
-
-    const updateData = {};
-    if (nickname) updateData.nickname = nickname;
-    if (password) updateData.password = await bcrypt.hash(password, 10);
-
-    const { error } = await supabase
-      .from('users')
-      .update(updateData)
-      .eq('id', userId);
-
-    if (error) return res.status(500).send('수정 실패');
-
-    res.json({ message: '정보가 수정되었습니다.' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('서버 오류');
-  }
+// --- Reviews ---
+app.get('/api/reviews/recent', async (_req, res) => {
+  const { data, error } = await supabase.from('reviews')
+    .select('id, title, rating, foodcategory, restaurant_name, created_at')
+    .order('created_at', { ascending: false })
+    .limit(3);
+  if (error) return res.status(500).json({ message: '조회 실패' });
+  res.json(data);
 });
 
-// 리뷰 저장
-app.post('/submit-review', upload.single('reviewImage'), verifyToken, async (req, res) => {
-  const {
-    reviewtitle, reviewdate, restaurantname,
-    restaurantaddress, rating, reviewcontent,
-    foodcategory, regioncategory
-  } = req.body;
+app.get('/api/reviews', async (req, res) => {
+  const { region, foodcategory, sort = 'latest' } = req.query;
+  let q = supabase.from('reviews')
+    .select('id, title, rating, foodcategory, restaurant_name, created_at')
+    .order('created_at', { ascending: false });
 
-  let image_url = null;
+  if (region) q = q.eq('regionnames', region);
+  if (foodcategory) q = q.eq('foodcategory', foodcategory);
+  // 북마크순은 추후 컬럼 추가 시 정렬 변경
 
-  if (req.file) {
-    try {
-      // 클라우디너리 스트림 업로드 함수
-      const streamUpload = (buffer) => {
-        return new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            { folder: 'reviews' },
-            (error, result) => {
-              if (result) resolve(result);
-              else reject(error);
-            }
-          );
-
-          const readable = new Readable();
-          readable._read = () => {};
-          readable.push(buffer);
-          readable.push(null);
-          readable.pipe(stream);
-        });
-      };
-
-      const result = await streamUpload(req.file.buffer);
-      image_url = result.secure_url;
-
-    } catch (err) {
-      console.error("이미지 업로드 실패:", err);
-      return res.status(500).send("이미지 업로드 실패");
-    }
-  }
-
-  try {
-    const { error } = await supabase
-      .from('reviews')
-      .insert([{
-        user_id: req.user.id,
-        title: reviewtitle,
-        date: reviewdate,
-        restaurant_name: restaurantname,
-        address: restaurantaddress,
-        rating,
-        content: reviewcontent,
-        image_url: image_url,
-        foodcategory: foodcategory,
-        regionNames: regioncategory
-      }]);
-
-    if (error) throw error;
-
-    res.send("리뷰 저장 완료!");
-  } catch (err) {
-    console.error("리뷰 저장 오류:", err);
-    res.status(500).send("저장 실패");
-  }
+  const { data, error } = await q;
+  if (error) return res.status(500).json({ message: '조회 실패' });
+  res.json(data);
 });
 
-// 최근 리뷰 3개
-app.get('/api/reviews/recent', async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('reviews')
-      .select('id, title, rating, foodcategory, regionnames')
-      .order('date', { ascending: false })
-      .limit(3);
-
-    if (error) throw error;
-    res.json(data);
-  } catch (err) {
-    console.error("리뷰 가져오기 실패:", err);
-    res.status(500).send("서버 오류");
-  }
+app.get('/api/reviews/mine', requireLogin, async (req, res) => {
+  const { data, error } = await supabase.from('reviews')
+    .select('id, title, rating, restaurant_name, created_at')
+    .eq('user_id', req.user.id)
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ message: '조회 실패' });
+  res.json(data);
 });
 
-// 리뷰 단일 조회
-app.get('/get-review/:id', async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('reviews')
-      .select('*')
-      .eq('id', req.params.id)
-      .single();
+app.get('/api/reviews/:id', async (req, res) => {
+  const { data: rv, error } = await supabase.from('reviews').select('*')
+    .eq('id', req.params.id).maybeSingle();
+  if (error || !rv) return res.status(404).json({ message: '없음' });
 
-    if (error || !data) return res.status(404).send("리뷰를 찾을 수 없음");
-    res.json(data);
-  } catch (err) {
-    console.error("리뷰 조회 오류:", err);
-    res.status(500).send("서버 오류");
-  }
+  const isOwner = !!(req.user && req.user.id === rv.user_id);
+  res.json({ ...rv, isOwner });
 });
 
-// 내 리뷰 조회
-app.get('/my-reviews', verifyToken, async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('reviews')
-      .select('*')
-      .eq('user_id', req.user.id);
-
-    if (error) throw error;
-    res.json(data);
-  } catch (err) {
-    console.error("내 리뷰 조회 오류:", err);
-    res.status(500).send("서버 오류");
-  }
+app.post('/api/reviews', requireLogin, async (req, res) => {
+  const payload = req.body || {};
+  const row = {
+    user_id: req.user.id,
+    title: payload.title,
+    restaurant_name: payload.restaurant_name,
+    address: payload.address,
+    rating: payload.rating,
+    content: payload.content,
+    image_url: payload.image_url,
+    foodcategory: payload.foodcategory,
+    regionnames: payload.regionnames
+  };
+  const { data, error } = await supabase.from('reviews').insert([row]).select('id').single();
+  if (error) return res.status(500).json({ message: '등록 실패' });
+  res.json({ ok: true, id: data.id });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 서버 실행 중: http://localhost:${PORT}`);
+app.put('/api/reviews/:id', requireLogin, async (req, res) => {
+  const id = req.params.id;
+
+  // 소유자 확인
+  const { data: rv, error: e1 } = await supabase.from('reviews').select('user_id').eq('id', id).maybeSingle();
+  if (e1 || !rv) return res.status(404).json({ message: '없음' });
+  if (rv.user_id !== req.user.id) return res.status(403).json({ message: '권한 없음' });
+
+  const payload = req.body || {};
+  const update = {
+    title: payload.title,
+    restaurant_name: payload.restaurant_name,
+    address: payload.address,
+    rating: payload.rating,
+    content: payload.content,
+    image_url: payload.image_url,
+    foodcategory: payload.foodcategory,
+    regionnames: payload.regionnames
+  };
+  const { error } = await supabase.from('reviews').update(update).eq('id', id);
+  if (error) return res.status(500).json({ message: '수정 실패' });
+  res.json({ ok: true });
 });
+
+app.delete('/api/reviews/:id', requireLogin, async (req, res) => {
+  const id = req.params.id;
+
+  const { data: rv, error: e1 } = await supabase.from('reviews').select('user_id').eq('id', id).maybeSingle();
+  if (e1 || !rv) return res.status(404).json({ message: '없음' });
+  if (rv.user_id !== req.user.id) return res.status(403).json({ message: '권한 없음' });
+
+  const { error } = await supabase.from('reviews').delete().eq('id', id);
+  if (error) return res.status(500).json({ message: '삭제 실패' });
+  res.json({ ok: true });
+});
+
+// SPA 라우팅 필요시 아래 주석 해제
+// app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'home.html')));
+
+app.listen(PORT, () => console.log(`Server running http://localhost:${PORT}`));

@@ -12,7 +12,6 @@
     .center-links { flex:1; display:flex; justify-content:center; gap:30px; margin-left:90px; }
     .center-links a, .auth-links a { color:#fff; text-decoration:none; }
     .auth-links { display:flex; gap:7px; }
-
     .wrap { max-width:720px; margin:24px auto; background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,.1); }
     input, select, textarea, button { width:100%; padding:12px; margin:8px 0; border:1px solid #64B5F6; border-radius:6px; }
     textarea { min-height:140px; }
@@ -21,6 +20,7 @@
     .row { display:flex; gap:8px; }
     .row > * { flex:1; }
   </style>
+  <script src="/utils/categoryLists.js"></script>
 </head>
 <body>
   <div class="header"><a href="/">YumSpot - 맛집을 찾아보자!</a></div>
@@ -44,15 +44,30 @@
         <input id="restaurant_name" placeholder="식당 이름" required>
         <input id="address" placeholder="주소" required>
       </div>
+
       <div class="row">
         <select id="rating" required>
           <option value="">평점</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
         </select>
+
+        <!-- 음식 대/소분류 -->
         <select id="foodcategory" required></select>
-        <select id="regionnames" required></select>
+        <select id="subcategory">
+          <option value="">소분류(선택)</option>
+        </select>
       </div>
+
+      <div class="row">
+        <!-- 지역 대/소분류 -->
+        <select id="regionnames" required></select>
+        <select id="subregion">
+          <option value="">세부 지역(선택)</option>
+        </select>
+      </div>
+
       <textarea id="content" placeholder="후기 내용을 적어주세요" required></textarea>
       <input id="image_url" placeholder="이미지 URL (선택)">
+
       <div class="row">
         <button type="submit">저장</button>
         <button type="button" id="cancelBtn" style="background:#90CAF9;">취소</button>
@@ -60,35 +75,34 @@
     </form>
   </div>
 
-  <script src="../utils/categoryLists.js"></script>
   <script>
     const params = new URLSearchParams(location.search);
     const id = params.get('id');
 
-    // 카테고리 초기화
-    function initCats(){
+    document.addEventListener('DOMContentLoaded', init);
+
+    async function init(){
+      // 대분류 초기화
       const f = document.getElementById('foodcategory');
       const r = document.getElementById('regionnames');
-      f.innerHTML = '<option value="">음식</option>' + (window.foodCategories||[]).map(c=>`<option>${c}</option>`).join('');
-      r.innerHTML = '<option value="">지역</option>' + (window.regionCategories||[]).map(c=>`<option>${c}</option>`).join('');
-    }
+      f.innerHTML = '<option value="">음식 대분류</option>' + (window.foodCategories||[]).map(c=>`<option>${c}</option>`).join('');
+      r.innerHTML = '<option value="">지역 대분류</option>' + (window.regionCategories||[]).map(c=>`<option>${c}</option>`).join('');
 
-    async function requireAuth(){
-      const r = await fetch('/check-auth'); const data = await r.json();
-      if(!data.loggedIn){ alert('로그인 후 이용 가능합니다.'); location.href='login.html'; return false; }
-      return true;
-    }
+      // 대분류 변경 시 소분류 재구성
+      document.getElementById('foodcategory').addEventListener('change', fillSubFood);
+      document.getElementById('regionnames').addEventListener('change', fillSubRegion);
 
-    async function loadExisting(){
-      if(!(await requireAuth())) return;
-      initCats();
+      // 권한/데이터 로드
+      const auth = await fetch('/check-auth').then(r=>r.json());
+      if(!auth.loggedIn){ alert('로그인 후 이용 가능합니다.'); location.href='login.html'; return; }
+
       try{
         const res = await fetch(`/api/reviews/${id}`);
         if(!res.ok) throw new Error('불러오기 실패');
         const rv = await res.json();
-        // (선택) 소유자 체크: 서버에서 차단하는 게 안전하지만, 프런트에서도 간단 확인
         if(rv.isOwner === false){ alert('수정 권한이 없습니다.'); location.href='reviewdetail.html?id='+id; return; }
 
+        // 값 주입
         title.value = rv.title ?? '';
         restaurant_name.value = rv.restaurant_name ?? '';
         address.value = rv.address ?? '';
@@ -97,38 +111,63 @@
         regionnames.value = rv.regionnames ?? '';
         content.value = rv.content ?? '';
         image_url.value = rv.image_url ?? '';
-      }catch(e){ alert(e.message || '리뷰 정보를 불러오지 못했습니다.'); }
+
+        // 소분류 Select 채우고 값 맞추기
+        fillSubFood(rv.subcategory || '');
+        fillSubRegion(rv.subregion || '');
+      }catch(e){
+        alert(e.message || '리뷰 정보를 불러오지 못했습니다.');
+      }
+
+      document.getElementById('cancelBtn').addEventListener('click', ()=>{
+        if(confirm('수정을 취소하시겠습니까?')) history.back();
+      });
+    }
+
+    function fillSubFood(selected=''){
+      const big = document.getElementById('foodcategory').value;
+      const subs = (window.foodTree && window.foodTree[big]) || [];
+      const subSel = document.getElementById('subcategory');
+      subSel.innerHTML = `<option value="">소분류(선택)</option>` + subs.map(s=>`<option>${s}</option>`).join('');
+      if(selected) subSel.value = selected;
+    }
+    function fillSubRegion(selected=''){
+      const big = document.getElementById('regionnames').value;
+      const subs = (window.regionTree && window.regionTree[big]) || [];
+      const subSel = document.getElementById('subregion');
+      subSel.innerHTML = `<option value="">세부 지역(선택)</option>` + subs.map(s=>`<option>${s}</option>`).join('');
+      if(selected) subSel.value = selected;
     }
 
     document.getElementById('form').addEventListener('submit', async (e)=>{
       e.preventDefault();
-      const body = {
-        title: title.value.trim(),
-        restaurant_name: restaurant_name.value.trim(),
-        address: address.value.trim(),
-        rating: Number(rating.value),
-        foodcategory: foodcategory.value,
-        regionnames: regionnames.value,
-        content: content.value.trim(),
-        image_url: image_url.value.trim() || null
-      };
       try{
+        const body = {
+          title: title.value.trim(),
+          restaurant_name: restaurant_name.value.trim(),
+          address: address.value.trim(),
+          rating: Number(rating.value),
+          foodcategory: foodcategory.value,
+          subcategory: document.getElementById('subcategory').value || null,
+          regionnames: regionnames.value,
+          subregion: document.getElementById('subregion').value || null,
+          content: content.value.trim(),
+          image_url: image_url.value.trim() || null
+        };
+        if(!body.title || !body.restaurant_name || !body.address || !body.rating || !body.foodcategory || !body.regionnames){
+          alert('필수 항목을 확인해주세요.');
+          return;
+        }
         const res = await fetch(`/api/reviews/${id}`, {
           method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
         });
         if(!res.ok) throw new Error('수정 실패');
         alert('수정되었습니다.');
         location.href = `reviewdetail.html?id=${id}`;
-      }catch(e){ alert(e.message || '수정에 실패했습니다.'); }
-    });
-
-    document.getElementById('cancelBtn').addEventListener('click', ()=>{
-      if(confirm('수정을 취소하시겠습니까? 변경사항이 저장되지 않습니다.')){
-        history.back();
+      }catch(e){
+        alert(e.message || '수정에 실패했습니다.');
       }
     });
-
-    window.onload = loadExisting;
   </script>
 </body>
 </html>

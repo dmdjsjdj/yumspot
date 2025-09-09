@@ -134,25 +134,28 @@ app.get('/api/reviews/recent', async (_req, res) => {
 });
 
 app.get('/api/reviews', async (req, res) => {
-  const { region, foodcategory, sort = 'latest' } = req.query;
-  let q = supabase.from('reviews')
-    .select('id, title, rating, foodcategory, restaurant_name, created_at')
-    .order('created_at', { ascending: false });
+  const { region, foodcategory, sub, sort = 'latest' } = req.query;
 
+  let q = supabase.from('reviews')
+    .select('id, title, rating, foodcategory, subcategory, regionnames, subregion, restaurant_name, created_at');
+
+  // 정렬
+  if (sort === 'latest') {
+    q = q.order('created_at', { ascending: false });
+  }
+  // TODO: 북마크순은 북마크 컬럼/테이블 추가 후 여기서 정렬
+
+  // 대분류 필터
   if (region) q = q.eq('regionnames', region);
   if (foodcategory) q = q.eq('foodcategory', foodcategory);
-  // 북마크순은 추후 컬럼 추가 시 정렬 변경
+
+  // 소분류 필터 (둘 중 하나만 올 수 있음)
+  if (sub) {
+    if (region) q = q.eq('subregion', sub);
+    if (foodcategory) q = q.eq('subcategory', sub);
+  }
 
   const { data, error } = await q;
-  if (error) return res.status(500).json({ message: '조회 실패' });
-  res.json(data);
-});
-
-app.get('/api/reviews/mine', requireLogin, async (req, res) => {
-  const { data, error } = await supabase.from('reviews')
-    .select('id, title, rating, restaurant_name, created_at')
-    .eq('user_id', req.user.id)
-    .order('created_at', { ascending: false });
   if (error) return res.status(500).json({ message: '조회 실패' });
   res.json(data);
 });
@@ -177,7 +180,9 @@ app.post('/api/reviews', requireLogin, async (req, res) => {
     content: payload.content,
     image_url: payload.image_url,
     foodcategory: payload.foodcategory,
-    regionnames: payload.regionnames
+    regionnames: payload.regionnames,
+    subcategory: payload.subcategory || null,
+    subregion: payload.subregion || null
   };
   const { data, error } = await supabase.from('reviews').insert([row]).select('id').single();
   if (error) return res.status(500).json({ message: '등록 실패' });
@@ -201,7 +206,9 @@ app.put('/api/reviews/:id', requireLogin, async (req, res) => {
     content: payload.content,
     image_url: payload.image_url,
     foodcategory: payload.foodcategory,
-    regionnames: payload.regionnames
+    regionnames: payload.regionnames,
+    subcategory: payload.subcategory || null,
+    subregion: payload.subregion || null
   };
   const { error } = await supabase.from('reviews').update(update).eq('id', id);
   if (error) return res.status(500).json({ message: '수정 실패' });

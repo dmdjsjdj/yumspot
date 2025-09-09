@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>음식별 리뷰 - YumSpot</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body { font-family: Arial, sans-serif; background:#E3F2FD; margin:0; }
     .header { text-align:center; padding:20px; font-size:24px; font-weight:bold; background:#90CAF9; color:#fff; }
@@ -13,13 +13,15 @@
     .center-links a, .auth-links a { color:#fff; text-decoration:none; }
     .auth-links { display:flex; gap:7px; }
     .container { max-width:980px; margin:20px auto; padding:0 10px; }
-    .toolbar { display:flex; gap:10px; align-items:center; }
-    select, input, button { padding:10px; border:1px solid #64B5F6; border-radius:6px; }
+    .toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    select { padding:10px; border:1px solid #64B5F6; border-radius:6px; background:#fff; }
     .review-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap:16px; margin-top:16px; }
     .card { background:#fff; border-radius:8px; padding:16px; box-shadow:0 2px 5px rgba(0,0,0,.1); cursor:pointer; }
     .rating { letter-spacing:1px; }
     .empty { opacity:.4; }
   </style>
+  <!-- 전역 카테고리 로드 -->
+  <script src="/utils/categoryLists.js"></script>
 </head>
 <body>
   <div class="header"><a href="/">YumSpot - 맛집을 찾아보자!</a></div>
@@ -39,46 +41,95 @@
     <h2 id="title">음식별 리뷰</h2>
     <div class="toolbar">
       <select id="food"></select>
+      <select id="subFood">
+        <option value="">전체</option>
+      </select>
       <select id="sort">
         <option value="latest">최신순</option>
         <option value="bookmark">북마크 많은 순(예정)</option>
       </select>
-      <button id="searchBtn">보기</button>
+      <!-- 보기 버튼 제거 -->
     </div>
     <div id="grid" class="review-grid"></div>
   </div>
 
-  <script src="../utils/categoryLists.js"></script>
   <script>
-    (function initFoods(){
-      const f = document.getElementById('food');
-      f.innerHTML = foodCategories.map(v=>`<option>${v}</option>`).join('');
-    })();
+    function debounce(fn, ms = 250) {
+      let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+    }
+    const debouncedLoad = debounce(load, 250);
 
-    document.getElementById('searchBtn').addEventListener('click', load);
-    window.onload = load;
+    document.addEventListener('DOMContentLoaded', () => {
+      const foodSel = document.getElementById('food');
+      const subSel  = document.getElementById('subFood');
+      const sortSel = document.getElementById('sort');
 
-    async function load(){
-      const food = document.getElementById('food').value || foodCategories[0];
+      // 대분류 채우기
+      foodSel.innerHTML = (window.foodCategories || []).map(v => `<option>${v}</option>`).join('');
+
+      // 대분류 변경 시 소분류 갱신 + 자동 로드
+      foodSel.addEventListener('change', () => { fillSubfoods(); debouncedLoad(); });
+
+      // 소분류/정렬 변경 시 자동 로드
+      subSel.addEventListener('change', debouncedLoad);
+      sortSel.addEventListener('change', debouncedLoad);
+
+      // 초기가입력 + 첫 로드
+      fillSubfoods();
+      load();
+    });
+
+    function fillSubfoods() {
+      const big = document.getElementById('food').value;
+      const subs = (window.foodTree && window.foodTree[big]) || [];
+      const subSel = document.getElementById('subFood');
+      subSel.innerHTML = `<option value="">전체</option>` + subs.map(s => `<option>${s}</option>`).join('');
+    }
+
+    async function load() {
+      const big = document.getElementById('food').value;
+      const sub = document.getElementById('subFood').value;
       const sort = document.getElementById('sort').value;
-      document.getElementById('title').textContent = `${food} 리뷰`;
-      const grid = document.getElementById('grid');
-      grid.innerHTML='';
 
-      try{
-        const res = await fetch(`/api/reviews?foodcategory=${encodeURIComponent(food)}&sort=${sort}`);
-        if(!res.ok) throw new Error('불러오기 실패');
-        const list = await res.json();
-        list.forEach(rv=>{
-          const stars='★'.repeat(rv.rating)+'<span class="empty">'+'☆'.repeat(5-rv.rating)+'</span>';
-          const el=document.createElement('div');
-          el.className='card';
-          el.innerHTML=`<h3>${rv.title}</h3><p class="rating">${stars}</p><p>${rv.restaurant_name ?? ''}</p>`;
-          el.addEventListener('click',()=>location.href=`reviewdetail.html?id=${rv.id}`);
-          grid.appendChild(el);
-        });
-        if(list.length===0) grid.innerHTML='<p>해당 카테고리 리뷰가 없습니다.</p>';
-      }catch(e){ grid.innerHTML='<p>오류가 발생했습니다.</p>'; }
+      document.getElementById('title').textContent = sub ? `${big} · ${sub} 리뷰` : `${big} 리뷰`;
+
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+
+      try {
+        // 서버에서 subcategory를 아직 지원하지 않는다고 가정하고
+        // 대분류로 받아서 프런트에서 임시 필터
+        const res = await fetch(
+          `/api/reviews?foodcategory=${encodeURIComponent(big)}&sub=${encodeURIComponent(sub)}&sort=${sort}`
+        );
+        if (!res.ok) throw new Error('불러오기 실패');
+        let list = await res.json();
+
+        if (sub) {
+          const kw = sub.replace(/\s+/g, '');
+          list = list.filter(rv => {
+            const txt = ((rv.foodcategory || '') + ' ' + (rv.title || '') + ' ' + (rv.content || '')).replace(/\s+/g, '');
+            return txt.includes(kw);
+          });
+        }
+
+        renderCards(list, grid);
+      } catch (e) {
+        grid.innerHTML = '<p>오류가 발생했습니다.</p>';
+        console.error(e);
+      }
+    }
+
+    function renderCards(list, grid) {
+      list.forEach(rv => {
+        const stars = '★'.repeat(rv.rating) + '<span class="empty">' + '☆'.repeat(5 - rv.rating) + '</span>';
+        const el = document.createElement('div');
+        el.className = 'card';
+        el.innerHTML = `<h3>${rv.title}</h3><p class="rating">${stars}</p><p>${rv.restaurant_name ?? ''}</p>`;
+        el.addEventListener('click', () => location.href = `reviewdetail.html?id=${rv.id}`);
+        grid.appendChild(el);
+      });
+      if (list.length === 0) grid.innerHTML = '<p>해당 카테고리 리뷰가 없습니다.</p>';
     }
   </script>
 </body>

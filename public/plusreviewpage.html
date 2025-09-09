@@ -17,7 +17,10 @@
     textarea { min-height:140px; }
     button { background:#64B5F6; color:#fff; border:none; font-weight:bold; cursor:pointer; }
     button:hover { background:#42A5F5; }
+    .row { display:flex; gap:8px; }
+    .row > * { flex:1; }
   </style>
+  <script src="/utils/categoryLists.js"></script>
 </head>
 <body>
   <div class="header"><a href="/">YumSpot - 맛집을 찾아보자!</a></div>
@@ -37,56 +40,128 @@
     <h2>리뷰 작성</h2>
     <form id="reviewForm">
       <input id="title" placeholder="리뷰 제목" required>
-      <input id="restaurant_name" placeholder="식당 이름" required>
-      <input id="address" placeholder="주소 (복사/붙여넣기)" required>
-      <label>평점(1~5)</label>
-      <select id="rating" required>
-        <option value="">선택</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
-      </select>
-      <label>음식 카테고리</label>
-      <select id="foodcategory" required></select>
-      <label>지역</label>
-      <select id="regionnames" required></select>
+      <div class="row">
+        <input id="restaurant_name" placeholder="식당 이름" required>
+        <input id="address" placeholder="주소 (복사/붙여넣기)" required>
+      </div>
+
+      <div class="row">
+        <select id="rating" required>
+          <option value="">평점(1~5)</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+        </select>
+
+        <!-- 음식 대/소분류 -->
+        <select id="foodcategory" required></select>
+        <select id="subcategory">
+          <option value="">소분류(선택)</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <!-- 지역 대/소분류 -->
+        <select id="regionnames" required></select>
+        <select id="subregion">
+          <option value="">세부 지역(선택)</option>
+        </select>
+      </div>
+
       <textarea id="content" placeholder="후기 내용을 적어주세요" required></textarea>
+      <!-- URL 입력 그대로 유지(업로드 안 쓸 때용) + 파일 업로드(선택) -->
       <input id="image_url" placeholder="이미지 URL (선택)">
-      <button type="submit">등록</button>
+      <input id="image_file" type="file" accept="image/*">
+
+      <div class="row">
+        <button type="submit">등록</button>
+        <button type="button" id="cancelBtn" style="background:#90CAF9;">취소</button>
+      </div>
     </form>
   </div>
 
-  <script src="../utils/categoryLists.js"></script>
+  <!-- (선택) Supabase Storage 업로드를 사용할 경우만 필요 -->
+  <!-- <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> -->
   <script>
-    // 카테고리 세팅
-    (function initCats(){
-      if (window.foodCategories) {
-        const f = document.getElementById('foodcategory');
-        f.innerHTML = '<option value="">선택</option>' + foodCategories.map(c=>`<option>${c}</option>`).join('');
-      }
-      if (window.regionCategories) {
-        const r = document.getElementById('regionnames');
-        r.innerHTML = '<option value="">선택</option>' + regionCategories.map(c=>`<option>${c}</option>`).join('');
-      }
-    })();
+    // (선택) 이미지 업로드용 supabase 클라이언트 초기화
+    // const SUPABASE_URL = "https://<your>.supabase.co";
+    // const SUPABASE_ANON_KEY = "<anon key>";
+    // const sb = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    function debounce(fn, ms=250){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+    const debouncedFill = debounce(()=>{},200); // 필요시
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // 대분류 채우기
+      const f = document.getElementById('foodcategory');
+      const r = document.getElementById('regionnames');
+      f.innerHTML = '<option value="">음식 대분류</option>' + (window.foodCategories||[]).map(c=>`<option>${c}</option>`).join('');
+      r.innerHTML = '<option value="">지역 대분류</option>' + (window.regionCategories||[]).map(c=>`<option>${c}</option>`).join('');
+
+      // 대분류 변경 시 소분류 채우기
+      f.addEventListener('change', fillSubFood);
+      r.addEventListener('change', fillSubRegion);
+
+      document.getElementById('cancelBtn').addEventListener('click', ()=>{
+        if(confirm('작성을 취소하시겠습니까?')) history.back();
+      });
+    });
+
+    function fillSubFood(){
+      const big = document.getElementById('foodcategory').value;
+      const subs = (window.foodTree && window.foodTree[big]) || [];
+      const subSel = document.getElementById('subcategory');
+      subSel.innerHTML = `<option value="">소분류(선택)</option>` + subs.map(s=>`<option>${s}</option>`).join('');
+    }
+    function fillSubRegion(){
+      const big = document.getElementById('regionnames').value;
+      const subs = (window.regionTree && window.regionTree[big]) || [];
+      const subSel = document.getElementById('subregion');
+      subSel.innerHTML = `<option value="">세부 지역(선택)</option>` + subs.map(s=>`<option>${s}</option>`).join('');
+    }
+
+    async function uploadImageAndGetUrl(file){
+      // Supabase Storage 업로드를 쓸 경우에만 구현
+      // if (!sb || !file) return null;
+      // const filePath = `user-${Date.now()}-${file.name}`;
+      // const { data, error } = await sb.storage.from('review-images').upload(filePath, file, { cacheControl:'3600', upsert:false });
+      // if(error) throw error;
+      // const { data:pub } = sb.storage.from('review-images').getPublicUrl(filePath);
+      // return pub.publicUrl;
+      return null; // 업로드 미사용 시 null
+    }
 
     document.getElementById('reviewForm').addEventListener('submit', async (e)=>{
       e.preventDefault();
-      const body = {
-        title: title.value.trim(),
-        restaurant_name: restaurant_name.value.trim(),
-        address: address.value.trim(),
-        rating: Number(rating.value),
-        foodcategory: foodcategory.value,
-        regionnames: regionnames.value,
-        content: content.value.trim(),
-        image_url: image_url.value.trim() || null
-      };
       try{
+        const file = document.getElementById('image_file').files[0];
+        const uploadedUrl = await uploadImageAndGetUrl(file);
+
+        const body = {
+          title: title.value.trim(),
+          restaurant_name: restaurant_name.value.trim(),
+          address: address.value.trim(),
+          rating: Number(rating.value),
+          foodcategory: foodcategory.value,       // 대분류
+          subcategory: document.getElementById('subcategory').value || null, // 소분류
+          regionnames: regionnames.value,         // 대분류
+          subregion: document.getElementById('subregion').value || null,     // 소분류
+          content: content.value.trim(),
+          image_url: uploadedUrl || (image_url.value.trim() || null)
+        };
+
+        // 간단 유효성
+        if(!body.title || !body.restaurant_name || !body.address || !body.rating || !body.foodcategory || !body.regionnames){
+          alert('필수 항목을 확인해주세요.');
+          return;
+        }
+
         const res = await fetch('/api/reviews', {
           method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
         });
         if(!res.ok) throw new Error('등록 실패');
         alert('리뷰 등록 완료!');
         location.href = 'myreview.html';
-      }catch(e){ alert(e.message); }
+      }catch(err){
+        alert(err.message || '오류가 발생했습니다.');
+      }
     });
   </script>
 </body>

@@ -28,6 +28,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'change-me';
 
 // --- helpers ---
 function setAuthCookie(res, payload) {
+  const { exp, iat, nbf, ...clean } = payload || {};
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
@@ -71,8 +72,6 @@ app.post('/signup', async (req, res) => {
       .select('id, email, nickname').single();
     if (e2) throw e2;
 
-    // 가입 후 자동 로그인으로 바꾸고 싶으면 다음 2줄 사용
-    setAuthCookie(res, { id: user.id, email: user.email, nickname: user.nickname });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ message: '회원가입 실패', detail: String(err.message || err) });
@@ -100,7 +99,11 @@ app.post('/login', async (req, res) => {
 });
 
 app.get('/logout', (req, res) => {
-  res.clearCookie(COOKIE_NAME);
+  res.clearCookie(COOKIE_NAME, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+  });
   res.json({ ok: true });
 });
 
@@ -119,8 +122,8 @@ app.put('/api/me', requireLogin, async (req, res) => {
   const { nickname } = req.body || {};
   const { error } = await supabase.from('users').update({ nickname }).eq('id', req.user.id);
   if (error) return res.status(500).json({ message: '수정 실패' });
-  // 쿠키 닉네임도 갱신
-  setAuthCookie(res, { ...req.user, nickname });
+  // 필요한 필드만 재서명
+  setAuthCookie(res, { id: req.user.id, email: req.user.email, nickname });
   res.json({ ok: true });
 });
 

@@ -42,18 +42,49 @@
   </div>
 
   <script>
-  async function loadMe(){
-    const r = await fetch('/check-auth'); const data = await r.json();
-    if(!data.loggedIn){ alert('로그인 후 이용 가능합니다.'); location.href='login.html'; return; }
-    const me = await fetch('/api/me').then(r=>r.json()).catch(()=>null);
+  (async function(){
+    // 네비게이션 상태
+    fetch('/check-auth', { credentials:'include' })
+      .then(r=>r.json())
+      .then(d=>{
+        if(!d.loggedIn){ alert('로그인 후 이용 가능합니다.'); location.href='login.html'; return; }
+        const el = document.querySelector('.auth-links');
+        if(el){
+          el.innerHTML = `
+            <div style="position: relative;">
+              <button id="mypageBtn" style="background:none;border:none;color:white;cursor:pointer;">마이페이지 ▾</button>
+              <div id="mypageDropdown" style="display:none;position:absolute;right:0;background:white;color:black;padding:10px;border-radius:5px;">
+                <a href="mypage.html" style="color:black;text-decoration:none;">내 정보 확인</a><br>
+                <a href="editprofile.html" style="color:black;text-decoration:none;">프로필 수정</a><br>
+                <a href="#" id="logoutLink" style="color:black;text-decoration:none;">로그아웃</a>
+              </div>
+            </div>`;
+          document.getElementById("mypageBtn").addEventListener("click",()=>{
+            const dd=document.getElementById("mypageDropdown");
+            dd.style.display = dd.style.display==='none' ? 'block' : 'none';
+          });
+          document.getElementById("logoutLink").addEventListener("click",(e)=>{
+            e.preventDefault();
+            fetch('/logout', { credentials:'include' }).then(()=>location.href='/');
+          });
+        }
+      });
+
+    // 내 정보
+    const res = await fetch('/api/me', { credentials:'include' });
+    if(res.status === 401){ alert('로그인 후 이용 가능합니다.'); location.href='login.html'; return; }
+    const me = await res.json().catch(()=>null);
     document.getElementById('info').innerHTML = me ? `
       <p>이메일: ${me.email}</p>
       <p>닉네임: ${me.nickname}</p>
-      <button class="btn" onclick="logout()">로그아웃</button>
+      <button class="btn" id="logoutInline">로그아웃</button>
     ` : '<p>정보를 불러오지 못했습니다.</p>';
-  }
-  function logout(){ fetch('/logout').then(()=>location.href='home.html'); }
-  window.onload = loadMe;
+
+    document.getElementById('logoutInline')?.addEventListener('click', ()=>{
+      fetch('/logout', { credentials:'include' }).then(()=>location.href='/');
+    });
+  })();
   </script>
+
 </body>
 </html>

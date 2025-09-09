@@ -20,6 +20,7 @@
     .helper { text-align:right; font-size:14px; }
     .error { color:#c62828; font-size:14px; }
   </style>
+  <script src="/utils/categoryLists.js"></script>
 </head>
 <body>
   <div class="header">
@@ -49,28 +50,25 @@
   </div>
 
   <script>
-    document.getElementById('loginForm').addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value.trim();
-      const err = document.getElementById('err');
-      err.textContent = '';
+  document.getElementById('loginForm')?.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
 
-      try{
-        const res = await fetch('/login', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ email, password })
-        });
-        if(!res.ok){
-          const {message} = await res.json().catch(()=>({message:'로그인 실패'}));
-          throw new Error(message || '로그인 실패');
-        }
-        location.href = 'home.html';
-      }catch(e){
-        err.textContent = e.message;
-      }
-    });
+    try{
+      const res = await fetch('/login', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        credentials:'include',
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json().catch(()=> ({}));
+      if(!res.ok){ throw new Error(data.message || '로그인 실패'); }
+      location.href = '/';
+    }catch(err){
+      alert(err.message || '오류가 발생했습니다.');
+    }
+  });
   </script>
 </body>
 </html>

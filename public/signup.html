@@ -19,6 +19,7 @@
     button:hover { background:#42A5F5; }
     .error { color:#c62828; font-size:14px; }
   </style>
+  <script src="/utils/categoryLists.js"></script>
 </head>
 <body>
   <div class="header">
@@ -48,26 +49,26 @@
   </div>
 
   <script>
-  document.getElementById('signupForm').addEventListener('submit', async (e)=>{
+  document.getElementById('signupForm')?.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const email = document.getElementById('email').value.trim();
     const nickname = document.getElementById('nickname').value.trim();
-    const password = document.getElementById('password').value.trim();
-    const err = document.getElementById('err'); err.textContent='';
+    const password = document.getElementById('password').value;
 
     try{
       const res = await fetch('/signup', {
         method:'POST',
-        headers:{'Content-Type':'application/json'},
+        headers:{ 'Content-Type':'application/json' },
+        credentials:'include', // 쿠키 세팅 위해
         body: JSON.stringify({ email, nickname, password })
       });
-      if(!res.ok){
-        const {message} = await res.json().catch(()=>({message:'회원가입 실패'}));
-        throw new Error(message || '회원가입 실패');
-      }
-      alert('회원가입 완료! 로그인 해주세요.');
-      location.href='login.html';
-    }catch(e){ err.textContent = e.message; }
+      const data = await res.json().catch(()=> ({}));
+      if(!res.ok){ throw new Error(data.message || '회원가입 실패'); }
+      // 가입 후 자동 로그인 쿠키가 세팅됨
+      location.href = '/';
+    }catch(err){
+      alert(err.message || '오류가 발생했습니다.');
+    }
   });
   </script>
 </body>

@@ -70,6 +70,13 @@
       .header { font-size: 20px; padding: 16px; }
     }
 
+    .pw-box { position: relative; }
+    .pw-box input { width: 100%; padding-right: 40px; }
+    .togglePw {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; font-size: 16px;
+    }
+
   </style>
   <script src="/utils/categoryLists.js"></script>
 </head>
@@ -94,7 +101,17 @@
     <form id="signupForm">
       <input id="email" type="email" placeholder="이메일" required>
       <input id="nickname" type="text" placeholder="닉네임" required>
-      <input id="password" type="password" placeholder="비밀번호" required>
+      <!-- 비밀번호 입력 -->
+      <div class="pw-box">
+        <input type="password" id="password" placeholder="비밀번호 (8자 이상, 영문+숫자)" required>
+        <button type="button" class="togglePw" onclick="togglePw('password', this)">👁</button>
+      </div>
+
+      <!-- 비밀번호 확인 -->
+      <div class="pw-box">
+        <input type="password" id="passwordConfirm" placeholder="비밀번호 확인" required>
+        <button type="button" class="togglePw" onclick="togglePw('passwordConfirm', this)">👁</button>
+      </div>
       <button type="submit">가입하기</button>
     </form>
     <p class="error" id="err"></p>
@@ -123,5 +140,17 @@
   });
   </script>
 
+  <script>
+  function togglePw(inputId, btn){
+    const input = document.getElementById(inputId);
+    if(input.type === "password"){
+      input.type = "text";
+      btn.textContent = "🙈";
+    } else {
+      input.type = "password";
+      btn.textContent = "👁";
+    }
+  }
+  </script>
 </body>
 </html>

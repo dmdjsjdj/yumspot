@@ -71,6 +71,12 @@
       .header { font-size: 20px; padding: 16px; }
     }
 
+    .pw-box { position: relative; }
+    .pw-box input { width: 100%; padding-right: 40px; }
+    .togglePw {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; font-size: 16px;
+    }
   </style>
   <script src="/utils/categoryLists.js"></script>
 </head>
@@ -94,7 +100,10 @@
     <h2>로그인</h2>
     <form id="loginForm">
       <input id="email" type="email" placeholder="이메일" required>
-      <input id="password" type="password" placeholder="비밀번호" required>
+      <div class="pw-box">
+        <input type="password" id="password" placeholder="비밀번호" required>
+        <button type="button" class="togglePw" onclick="togglePw('password', this)">👁</button>
+      </div>
       <button type="submit">로그인</button>
       <p class="helper"><a href="findpassword.html">비밀번호 찾기</a></p>
     </form>
@@ -150,6 +159,19 @@
         });
       });
   })();
+  </script>
+
+  <script>
+  function togglePw(inputId, btn){
+    const input = document.getElementById(inputId);
+    if(input.type === "password"){
+      input.type = "text";
+      btn.textContent = "🙈";
+    } else {
+      input.type = "password";
+      btn.textContent = "👁";
+    }
+  }
   </script>
 
 </body>

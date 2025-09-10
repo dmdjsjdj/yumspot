@@ -142,7 +142,6 @@
   </div>
 
   <script>
-
     let currentUserId = null;
     async function getUserId() {
       if (currentUserId) return currentUserId;
@@ -153,16 +152,26 @@
         currentUserId = me?.id || null;
         return currentUserId;
       } catch { return null; }
-    }   
+    }
+
+    function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+
+    function onKakaoReady(cb){
+      if (window.kakao?.maps?.load) return kakao.maps.load(cb);
+      const sdk = document.querySelector('script[src*="dapi.kakao.com"]');
+      const run = () => kakao.maps.load(cb);
+      if (sdk) sdk.addEventListener('load', run, { once:true });
+      else window.addEventListener('load', run, { once:true });
+    }
+
     const params = new URLSearchParams(location.search);
     const id = params.get('id');
-    let ps;
-    let oldImageUrl = null;
+    let ps, oldImageUrl = null;
 
     document.addEventListener('DOMContentLoaded', init);
 
     async function init(){
-      // 분류 채우기
+      // 분류
       const f = document.getElementById('foodcategory');
       const r = document.getElementById('regionnames');
       f.innerHTML = '<option value="">음식 대분류</option>' + (window.foodCategories||[]).map(c=>`<option>${c}</option>`).join('');
@@ -174,19 +183,13 @@
       const auth = await fetch('/check-auth', { credentials: 'include' }).then(r=>r.json());
       if(!auth.loggedIn){ alert('로그인 후 이용 가능합니다.'); location.href='login.html'; return; }
 
-      // Kakao Places 준비 + 자동완성
-      if (window.kakao && kakao.maps && kakao.maps.load) {
-        kakao.maps.load(() => { 
-          ps = new kakao.maps.services.Places();
-          setupAutocomplete();
-        });
-      } else {
-        const sdk = document.querySelector('script[src*="dapi.kakao.com"]');
-        const run = () => { ps = new kakao.maps.services.Places(); setupAutocomplete(); };
-        if (sdk) sdk.addEventListener('load', () => kakao.maps.load(run), { once:true });
-        else window.addEventListener('load', () => kakao.maps.load(run), { once:true });
-      }
+      // Kakao Places + 자동완성
+      onKakaoReady(() => {
+        ps = new kakao.maps.services.Places();
+        setupAutocomplete();
+      });
 
+      // 데이터 로드
       try{
         const res = await fetch(`/api/reviews/${id}`, { credentials: 'include' });
         if(!res.ok) throw new Error('불러오기 실패');
@@ -200,9 +203,9 @@
         foodcategory.value = rv.foodcategory ?? '';
         regionnames.value = rv.regionnames ?? '';
         content.value = rv.content ?? '';
-        image_url.value = rv.image_url ?? '';
+        // ⬇️ 텍스트 image_url 인풋은 없으므로 더 이상 세팅하지 않음
 
-        // 좌표 세팅
+        // 좌표
         document.getElementById('lat').value = rv.lat ?? '';
         document.getElementById('lng').value = rv.lng ?? '';
 
@@ -235,7 +238,6 @@
       if(selected) subSel.value = selected;
     }
 
-    // 자동완성
     function setupAutocomplete(){
       const $name = document.getElementById('restaurant_name');
       const $addr = document.getElementById('address');
@@ -243,7 +245,6 @@
       const $lng  = document.getElementById('lng');
       const $list = document.getElementById('suggest');
 
-      const debounce = (fn, ms)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
       const search = debounce(q=>{
         if(!q || q.trim().length < 2){ $list.style.display='none'; $list.innerHTML=''; return; }
         ps.keywordSearch(q.trim(), (data, status)=>{
@@ -282,36 +283,33 @@
       });
     }
 
-  //  업로드 함수에서 userId 활용
-  async function uploadImageAndGetUrl(file){
-    if (!file) return null;
-    if (!window.sb) { alert('이미지 업로드 클라이언트 초기화 실패'); return null; }
+    async function uploadImageAndGetUrl(file){
+      if (!file) return null;
+      if (!window.sb) { alert('이미지 업로드 클라이언트 초기화 실패'); return null; }
 
-    const userId = await getUserId();   // 여기서 호출
-    const uid = userId ? String(userId) : 'anon';
+      const userId = await getUserId();
+      const uid = userId ? String(userId) : 'anon';
 
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-    const filePath = `user-${uid}-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const filePath = `user-${uid}-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-    const { error } = await window.sb.storage
-      .from('review-images')
-      .upload(filePath, file, { cacheControl:'3600', upsert:false });
+      const { error } = await window.sb.storage
+        .from('review-images')
+        .upload(filePath, file, { cacheControl:'3600', upsert:false });
 
-    if (error) { console.error(error); throw new Error('이미지 업로드 실패'); }
+      if (error) { console.error(error); throw new Error('이미지 업로드 실패'); }
 
-    const { data: pub } = window.sb.storage.from('review-images').getPublicUrl(filePath);
-    return pub.publicUrl;
-  }
+      const { data: pub } = window.sb.storage.from('review-images').getPublicUrl(filePath);
+      return pub.publicUrl;
+    }
 
     document.getElementById('form').addEventListener('submit', async (e)=>{
       e.preventDefault();
       try{
-          // 🔹 파일 업로드 시도
-          const file = document.getElementById('image_file').files?.[0];
-          let uploadedUrl = null;
-          if (file) {
-            uploadedUrl = await uploadImageAndGetUrl(file); // ← 위에 정의한 함수 사용
-          }
+        const file = document.getElementById('image_file').files?.[0];
+        let uploadedUrl = null;
+        if (file) uploadedUrl = await uploadImageAndGetUrl(file);
+
         const body = {
           title: title.value.trim(),
           restaurant_name: restaurant_name.value.trim(),
@@ -322,17 +320,16 @@
           regionnames: regionnames.value,
           subregion: document.getElementById('subregion').value || null,
           content: content.value.trim(),
-        
-          //  최종 이미지 URL: 새 업로드(우선) → 기존 값 → null
+          // ⬇️ 새 업로드가 있으면 교체, 없으면 기존 유지
           image_url: uploadedUrl ?? oldImageUrl ?? null,
-
-          // 좌표 
           lat: document.getElementById('lat').value ? Number(document.getElementById('lat').value) : null,
           lng: document.getElementById('lng').value ? Number(document.getElementById('lng').value) : null
         };
+
         if(!body.title || !body.restaurant_name || !body.address || !body.rating || !body.foodcategory || !body.regionnames){
           alert('필수 항목을 확인해주세요.'); return;
         }
+
         const res = await fetch(`/api/reviews/${id}`, {
           method:'PUT',
           headers:{'Content-Type':'application/json'},
@@ -346,35 +343,6 @@
     });
   </script>
 
-  <!-- 네비 스니펫 -->
-  <script>
-  (function initAuth(){
-    fetch('/check-auth', { credentials: 'include' })
-      .then(r=>r.json())
-      .then(d=>{
-        if(!d.loggedIn) return;
-        const el = document.querySelector('.auth-links');
-        if(!el) return;
-        el.innerHTML = `
-          <div style="position: relative;">
-            <button id="mypageBtn" style="background:none;border:none;color:white;cursor:pointer;">마이페이지 ▾</button>
-            <div id="mypageDropdown" style="display:none;position:absolute;right:0;background:white;color:black;padding:10px;border-radius:5px;min-width:100px;">
-              <a href="mypage.html" style="color:black;text-decoration:none;">내 정보 확인</a><br>
-              <a href="editprofile.html" style="color:black;text-decoration:none;">프로필 수정</a><br>
-              <a href="#" id="logoutLink" style="color:black;text-decoration:none;">로그아웃</a>
-            </div>
-          </div>`;
-        document.getElementById("mypageBtn")?.addEventListener("click",()=>{
-          const dd = document.getElementById("mypageDropdown");
-          dd.style.display = dd.style.display === "none" ? "block" : "none";
-        });
-        document.getElementById("logoutLink")?.addEventListener("click",(e)=>{
-          e.preventDefault();
-          fetch('/logout', { credentials:'include' }).then(()=>location.href='/');
-        });
-      });
-  })();
-  </script>
   <!-- Kakao JS SDK (services 라이브러리 포함) -->
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=3382e6a214a404a815ed75a04889a2cd&libraries=services&autoload=false"></script>
   <script type="module" src="/utils/supabaseClient.browser.js"></script>

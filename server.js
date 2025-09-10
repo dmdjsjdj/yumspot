@@ -10,7 +10,6 @@ import jwt from 'jsonwebtoken';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { supabase } from './supabaseClient.js';
-import { createClient as createSbClient } from '@supabase/supabase-js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,11 +26,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 const COOKIE_NAME = process.env.COOKIE_NAME || 'ysid';
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me';
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY; // 필수(비공개)
-export const supabaseAdmin = createSbClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-const REVIEW_BUCKET = 'review-images';
-
 // --- helpers ---
 function setAuthCookie(res, payload) {
   const { exp, iat, nbf, ...clean } = payload || {};
@@ -40,6 +34,7 @@ function setAuthCookie(res, payload) {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
+    path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000
   });
 }
@@ -53,13 +48,6 @@ function pathFromPublicUrl(publicUrl) {
   return publicUrl.slice(idx + marker.length); 
 }
 
-async function deleteImageByPublicUrl(publicUrl) {
-  if (!supabaseAdmin) return;
-  const path = pathFromPublicUrl(publicUrl);
-  if (!path) return;
-  const { error } = await supabaseAdmin.storage.from(REVIEW_BUCKET).remove([path]);
-  if (error) console.error('Storage remove error:', error);
-}
 
 function authMiddleware(req, _res, next) {
   const token = req.cookies[COOKIE_NAME];
@@ -137,7 +125,7 @@ app.post('/login', async (req, res) => {
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ message: '이메일 또는 비밀번호가 틀립니다.' });
 
-    //setAuthCookie(res, { id: user.id, email: user.email, nickname: user.nickname });
+    setAuthCookie(res, { id: user.id, email: user.email, nickname: user.nickname });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ message: '로그인 실패', detail: String(err.message || err) });
@@ -376,12 +364,6 @@ app.delete('/api/reviews/:id', requireLogin, async (req, res) => {
   if (e1 || !rv) return res.status(404).json({ message: '없음' });
   if (rv.user_id !== req.user.id) return res.status(403).json({ message: '권한 없음' });
 
-  // 1) 이미지가 있으면 스토리지에서 삭제 시도
-  if (rv.image_url) {
-    try { await deleteImageByPublicUrl(rv.image_url); } catch (e) { console.error(e); }
-  }
-
-  // 2) 리뷰 삭제
   const { error } = await supabase.from('reviews').delete().eq('id', id);
   if (error) return res.status(500).json({ message: '삭제 실패' });
 

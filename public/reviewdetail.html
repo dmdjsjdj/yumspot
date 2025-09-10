@@ -22,8 +22,6 @@
     .meta { color:#555; font-size:14px; }
   </style>
   <script src="/utils/categoryLists.js"></script>
-  <!-- Kakao JS SDK -->
-  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=3382e6a214a404a815ed75a04889a2cd&libraries=services"></script>
 </head>
 <body>
   <div class="header"><a href="/">YumSpot - 맛집을 찾아보자!</a></div>
@@ -102,8 +100,15 @@
           });
         }
 
-        // 지도 렌더
-        renderMap(rv);
+        // ✅ SDK 로드 완료 후 지도 렌더
+        const run = () => renderMap(rv);
+        if (window.kakao && kakao.maps && kakao.maps.load) {
+          kakao.maps.load(run);
+        } else {
+          const sdk = document.querySelector('script[src*="dapi.kakao.com"]');
+          if (sdk) sdk.addEventListener('load', () => kakao.maps.load(run), { once:true });
+          else window.addEventListener('load', () => kakao.maps.load(run), { once:true });
+        }
       }catch(e){
         document.getElementById('card').innerHTML = '<p>리뷰를 불러오지 못했습니다.</p>';
       }
@@ -172,5 +177,7 @@
       });
   })();
   </script>
+  <!-- Kakao JS SDK (services 라이브러리 포함) -->
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=3382e6a214a404a815ed75a04889a2cd&libraries=services&autoload=false"></script>
 </body>
 </html>

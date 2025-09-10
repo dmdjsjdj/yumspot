@@ -146,9 +146,6 @@
     </form>
   </div>
 
-  <!-- Kakao JS SDK (services 라이브러리 포함) -->
-  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=3382e6a214a404a815ed75a04889a2cd&libraries=services"></script>
-
   <script>
     // 디바운스 유틸
     function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
@@ -168,11 +165,25 @@
         if(confirm('작성을 취소하시겠습니까?')) history.back();
       });
 
-      // Kakao Places 준비
-      ps = new kakao.maps.services.Places();
+      // ✅ 카카오 SDK 로딩 완료 후 실행
+      kakao.maps.load(() => {
+        ps = new kakao.maps.services.Places();
+        setupAutocomplete();  // 자동완성 세팅 함수 호출
+      });
 
-      // 자동완성 바인딩
-      setupAutocomplete();
+      if (window.kakao && kakao.maps && kakao.maps.load) {
+        kakao.maps.load(initPlaces);
+      } else {
+        // SDK 스크립트가 늦게 로드되는 경우 대비
+        const sdk = document.querySelector('script[src*="dapi.kakao.com"]');
+        const onReady = () => kakao.maps.load(initPlaces);
+        if (sdk) {
+          sdk.addEventListener('load', onReady, { once: true });
+        } else {
+          // 아주 드문 경우: window load 후에도 보장
+          window.addEventListener('load', onReady, { once: true });
+        }
+      }
     });
 
     function fillSubFood(){
@@ -304,5 +315,7 @@
       });
   })();
   </script>
+  <!-- Kakao JS SDK (services 라이브러리 포함) -->
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=3382e6a214a404a815ed75a04889a2cd&libraries=services&autoload=false"></script>
 </body>
 </html>

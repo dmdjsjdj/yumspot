@@ -19,6 +19,58 @@
     button:hover { background:#42A5F5; }
     .helper { text-align:right; font-size:14px; }
     .error { color:#c62828; font-size:14px; }
+
+    /* 1) 폭 계산을 테두리/패딩까지 포함 */
+    *, *::before, *::after { box-sizing: border-box; }
+
+    /* 2) 컨테이너 밖으로 넘치는 요소 잘라내기(스크롤 대신 깔끔) */
+    .wrap, .card, .container { overflow: hidden; }
+
+    /* 3) 입력/선택/버튼은 절대 부모 넓이를 넘지 않게 */
+    input, select, textarea, button {
+      max-width: 100%;
+      width: 100%;
+      display: block;          /* 인라인 특성으로 생기는 미세 오버플로 방지 */
+    }
+
+    /* 4) 옆으로 배치되는 행: 작은 화면에서 줄바꿈 허용 + 넘침 방지 핵심 */
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;         /* 화면 좁아지면 자동 줄바꿈 */
+    }
+    .row > * {
+      flex: 1 1 0;
+      min-width: 0;            /* 긴 내용 때문에 칸이 밀려나지 않게 */
+    }
+
+    /* 5) 긴 주소/URL/가게명도 줄 바꿈 */
+    #address, #image_url, #restaurant_name,
+    input[type="text"], input[type="url"] {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    /* 6) 파일 인풋도 폭 제한 및 줄바꿈 허용 */
+    input[type="file"] {
+      max-width: 100%;
+      white-space: normal;
+    }
+
+    /* 7) 자동완성 박스(카카오)도 부모 안에서만 펼쳐지게 */
+    .suggest-box { position: relative; min-width: 0; }
+    .suggest-list {
+      position: absolute; z-index: 20; top: 100%; left: 0; right: 0;
+      background:#fff; border:1px solid #ddd; border-radius:6px;
+      max-height: 240px; overflow:auto; box-shadow:0 4px 10px rgba(0,0,0,.08);
+    }
+
+    /* 8) 모바일 보완(옵션) */
+    @media (max-width: 560px) {
+      .center-links { margin-left: 0; gap: 16px; }
+      .header { font-size: 20px; padding: 16px; }
+    }
+
   </style>
   <script src="/utils/categoryLists.js"></script>
 </head>

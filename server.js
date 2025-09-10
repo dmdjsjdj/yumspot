@@ -29,7 +29,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'change-me';
 // --- helpers ---
 function setAuthCookie(res, payload) {
   const { exp, iat, nbf, ...clean } = payload || {};
-  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  const token = jwt.sign(clean, JWT_SECRET, { expiresIn: '7d' });
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: 'lax',

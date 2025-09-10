@@ -54,6 +54,7 @@ function pathFromPublicUrl(publicUrl) {
 }
 
 async function deleteImageByPublicUrl(publicUrl) {
+  if (!supabaseAdmin) return;
   const path = pathFromPublicUrl(publicUrl);
   if (!path) return;
   const { error } = await supabaseAdmin.storage.from(REVIEW_BUCKET).remove([path]);
@@ -389,3 +390,5 @@ app.delete('/api/reviews/:id', requireLogin, async (req, res) => {
 
 
 app.listen(PORT, () => console.log(`Server running http://localhost:${PORT}`));
+
+app.get('/healthz', (_req, res) => res.type('text').send('ok'));

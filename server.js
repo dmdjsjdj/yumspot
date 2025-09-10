@@ -215,6 +215,35 @@ app.put('/api/me', requireLogin, async (req, res) => {
   res.json({ ok: true });
 });
 
+// 내가 작성한 리뷰 목록
+// GET /api/reviews/mine?sort=latest|stars
+app.get('/api/reviews/mine', requireLogin, async (req, res) => {
+  try {
+    const sort = (req.query.sort || 'latest').toLowerCase();
+
+    // 기본 선택 컬럼 (myreview.html에서 사용하는 값들)
+    let query = supabase
+      .from('reviews')
+      .select('id, title, rating, restaurant_name, created_at')
+      .eq('user_id', req.user.id);
+
+    // 정렬 옵션
+    if (sort === 'stars') {
+      query = query.order('rating', { ascending: false }).order('created_at', { ascending: false });
+    } else {
+      // latest (기본)
+      query = query.order('created_at', { ascending: false });
+    }
+
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ message: '조회 실패' });
+
+    res.json(Array.isArray(data) ? data : []);
+  } catch (e) {
+    res.status(500).json({ message: '조회 실패', detail: String(e.message || e) });
+  }
+});
+
 // --- Reviews ---
 app.get('/api/reviews/recent', async (_req, res) => {
   const { data, error } = await supabase.from('reviews')

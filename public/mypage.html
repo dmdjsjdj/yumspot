@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>마이페이지 - YumSpot</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { font-family: Arial, sans-serif; background:#E3F2FD; margin:0; }
     .header { text-align:center; padding:20px; font-size:24px; font-weight:bold; background:#90CAF9; color:#fff; }
@@ -12,21 +12,10 @@
     .center-links { flex:1; display:flex; justify-content:center; gap:30px; margin-left:90px; }
     .center-links a, .auth-links a { color:#fff; text-decoration:none; }
     .auth-links { display:flex; gap:7px; }
-
-    .wrap { max-width:860px; margin:24px auto; background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,.1); }
-    .row { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    .wrap { max-width:640px; margin:24px auto; background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,.1); }
+    .row { display:flex; justify-content:space-between; align-items:center; }
     .btn { padding:10px 14px; background:#64B5F6; color:#fff; border:none; border-radius:6px; cursor:pointer; text-decoration:none; }
     .meta { color:#555; }
-
-    .toolbar { display:flex; gap:8px; align-items:center; margin-top:12px; }
-    .toolbar select { padding:10px; border:1px solid #64B5F6; border-radius:6px; background:#fff; }
-    .list { margin-top:16px; display:grid; grid-template-columns: 1fr; gap:12px; }
-    .card { padding:14px; border:1px solid #e5eaf2; border-radius:8px; background:#fafcff; display:flex; justify-content:space-between; align-items:center; gap:12px; }
-    .card h4 { margin:0 0 6px 0; }
-    .card .sub { color:#555; font-size:13px; }
-    .right-actions { display:flex; gap:8px; }
-    .btn.solid-red { background:#ef5350; }
-    .empty { text-align:center; padding:28px 8px; color:#666; }
   </style>
   <script src="/utils/categoryLists.js"></script>
 </head>
@@ -49,144 +38,53 @@
       <h2>내 정보 확인</h2>
       <a class="btn" href="editprofile.html">프로필 수정</a>
     </div>
-    <div id="info" class="meta" style="margin-top:8px;"></div>
-
-    <!-- 필터/정렬 툴바 (항상 보임) -->
-    <div class="toolbar">
-      <label for="sortSel">정렬:</label>
-      <select id="sortSel">
-        <option value="latest">최신순</option>
-        <option value="oldest">오래된순</option>
-        <option value="rating_desc">별점높은순</option>
-        <option value="rating_asc">별점낮은순</option>
-        <option value="bookmark_desc" disabled>북마크순(준비중)</option>
-      </select>
-      <button id="writeBtn" class="btn">리뷰 작성</button>
-    </div>
-
-    <!-- 내 리뷰 리스트 -->
-    <div id="mineWrap" class="list"></div>
+    <div id="info" class="meta"></div>
   </div>
 
   <script>
-    // 네비게이션 상태 & 가드
-    (function initAuth(){
-      fetch('/check-auth', { credentials:'include' })
-        .then(r=>r.json())
-        .then(d=>{
-          if(!d.loggedIn){ alert('로그인 후 이용 가능합니다.'); location.href='login.html'; return; }
-          const el = document.querySelector('.auth-links');
-          if(el){
-            el.innerHTML = `
-              <div style="position: relative;">
-                <button id="mypageBtn" style="background:none;border:none;color:white;cursor:pointer;">마이페이지 ▾</button>
-                <div id="mypageDropdown" style="display:none;position:absolute;right:0;background:white;color:black;padding:10px;border-radius:5px;min-width:120px;">
-                  <a href="mypage.html" style="color:black;text-decoration:none;">내 정보 확인</a><br>
-                  <a href="editprofile.html" style="color:black;text-decoration:none;">프로필 수정</a><br>
-                  <a href="#" id="logoutLink" style="color:black;text-decoration:none;">로그아웃</a>
-                </div>
-              </div>`;
-            document.getElementById("mypageBtn")?.addEventListener("click",()=>{
-              const dd=document.getElementById("mypageDropdown");
-              dd.style.display = dd.style.display==='none' ? 'block' : 'none';
-            });
-            document.getElementById("logoutLink")?.addEventListener("click",(e)=>{
-              e.preventDefault();
-              fetch('/logout', { credentials:'include' }).then(()=>location.href='/');
-            });
-          }
-        });
-    })();
-
-    const $info = document.getElementById('info');
-    const $list = document.getElementById('mineWrap');
-    const $sort = document.getElementById('sortSel');
-    document.getElementById('writeBtn').addEventListener('click', ()=> location.href='plusreviewpage.html');
-
-    let myReviews = [];
-
-    // 내 정보 + 내 리뷰 불러오기
-    (async function init(){
-      // 내 정보
-      const res = await fetch('/api/me', { credentials:'include' });
-      if(res.status === 401){ alert('로그인 후 이용 가능합니다.'); location.href='login.html'; return; }
-      const me = await res.json().catch(()=>null);
-      $info.innerHTML = me ? `
-        <p>이메일: ${me.email}</p>
-        <p>닉네임: ${me.nickname}</p>
-      ` : '<p>정보를 불러오지 못했습니다.</p>';
-
-      // 내 리뷰
-      await loadMyReviews();
-      // 정렬 변경 핸들러
-      $sort.addEventListener('change', render);
-    })();
-
-    async function loadMyReviews(){
-      try{
-        const r = await fetch('/api/reviews/mine', { credentials:'include' });
-        if(!r.ok) throw new Error('리뷰 조회 실패');
-        myReviews = await r.json(); // [{id,title,rating,restaurant_name,created_at}, ...]
-      }catch(e){
-        console.error(e);
-        myReviews = [];
-      }
-      render();
-    }
-
-    function render(){
-      // 정렬
-      const sort = $sort.value;
-      const arr = [...myReviews];
-      if(sort === 'latest'){
-        arr.sort((a,b)=> new Date(b.created_at) - new Date(a.created_at));
-      } else if(sort === 'oldest'){
-        arr.sort((a,b)=> new Date(a.created_at) - new Date(b.created_at));
-      } else if(sort === 'rating_desc'){
-        arr.sort((a,b)=> (b.rating||0) - (a.rating||0));
-      } else if(sort === 'rating_asc'){
-        arr.sort((a,b)=> (a.rating||0) - (b.rating||0));
-      } else if(sort === 'bookmark_desc'){
-        // 북마크 컬럼이 준비되면 여기서 정렬
-        alert('북마크 정렬은 준비중입니다.');
-      }
-
-      // 그리기
-      if(arr.length === 0){
-        $list.innerHTML = `<div class="empty">아직 내 리뷰가 없습니다.</div>`;
-        return;
-      }
-
-      $list.innerHTML = arr.map(rv=>{
-        const stars = '★'.repeat(rv.rating||0) + '<span style="opacity:.3">' + '☆'.repeat(5-(rv.rating||0)) + '</span>';
-        const dt = rv.created_at ? new Date(rv.created_at).toLocaleString() : '-';
-        return `
-          <div class="card">
-            <div>
-              <h4>${escapeHtml(rv.title||'(제목 없음)')}</h4>
-              <div class="sub">
-                식당: ${escapeHtml(rv.restaurant_name||'-')} |
-                평점: ${stars} |
-                작성일: ${dt}
+  (async function(){
+    // 네비게이션 상태
+    fetch('/check-auth', { credentials:'include' })
+      .then(r=>r.json())
+      .then(d=>{
+        if(!d.loggedIn){ alert('로그인 후 이용 가능합니다.'); location.href='login.html'; return; }
+        const el = document.querySelector('.auth-links');
+        if(el){
+          el.innerHTML = `
+            <div style="position: relative;">
+              <button id="mypageBtn" style="background:none;border:none;color:white;cursor:pointer;">마이페이지 ▾</button>
+              <div id="mypageDropdown" style="display:none;position:absolute;right:0;background:white;color:black;padding:10px;border-radius:5px;">
+                <a href="mypage.html" style="color:black;text-decoration:none;">내 정보 확인</a><br>
+                <a href="editprofile.html" style="color:black;text-decoration:none;">프로필 수정</a><br>
+                <a href="#" id="logoutLink" style="color:black;text-decoration:none;">로그아웃</a>
               </div>
-            </div>
-            <div class="right-actions">
-              <a class="btn" href="reviewdetail.html?id=${rv.id}">보기</a>
-              <a class="btn" href="editreview.html?id=${rv.id}">수정</a>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
+            </div>`;
+          document.getElementById("mypageBtn").addEventListener("click",()=>{
+            const dd=document.getElementById("mypageDropdown");
+            dd.style.display = dd.style.display==='none' ? 'block' : 'none';
+          });
+          document.getElementById("logoutLink").addEventListener("click",(e)=>{
+            e.preventDefault();
+            fetch('/logout', { credentials:'include' }).then(()=>location.href='/');
+          });
+        }
+      });
 
-    function escapeHtml(s=''){
-      return String(s)
-        .replaceAll('&','&amp;')
-        .replaceAll('<','&lt;')
-        .replaceAll('>','&gt;')
-        .replaceAll('"','&quot;')
-        .replaceAll("'","&#039;");
-    }
+    // 내 정보
+    const res = await fetch('/api/me', { credentials:'include' });
+    if(res.status === 401){ alert('로그인 후 이용 가능합니다.'); location.href='login.html'; return; }
+    const me = await res.json().catch(()=>null);
+    document.getElementById('info').innerHTML = me ? `
+      <p>이메일: ${me.email}</p>
+      <p>닉네임: ${me.nickname}</p>
+      <button class="btn" id="logoutInline">로그아웃</button>
+    ` : '<p>정보를 불러오지 못했습니다.</p>';
+
+    document.getElementById('logoutInline')?.addEventListener('click', ()=>{
+      fetch('/logout', { credentials:'include' }).then(()=>location.href='/');
+    });
+  })();
   </script>
+
 </body>
 </html>

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>내 리뷰 - YumSpot</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body { font-family: Arial, sans-serif; background:#E3F2FD; margin:0; }
     .header { text-align:center; padding:20px; font-size:24px; font-weight:bold; background:#90CAF9; color:#fff; }
@@ -12,16 +12,21 @@
     .center-links { flex:1; display:flex; justify-content:center; gap:30px; margin-left:90px; }
     .center-links a, .auth-links a { color:#fff; text-decoration:none; }
     .auth-links { display:flex; gap:7px; }
+
     .container { max-width:980px; margin:20px auto; padding:0 10px; }
-    .top-actions { display:flex; justify-content:space-between; align-items:center; }
-    .review-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap:16px; margin-top:16px; }
-    .card { background:#fff; border-radius:8px; padding:16px; box-shadow:0 2px 5px rgba(0,0,0,.1); cursor:pointer; position:relative; }
-    .rating { letter-spacing:1px; }
-    .empty { opacity:.4; }
-    .cta { margin-top:10px; display:flex; gap:8px; }
+    .top-actions { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    .right-actions { display:flex; gap:8px; align-items:center; }
+    .select { padding:8px 10px; border:1px solid #90CAF9; border-radius:6px; background:#fff; }
     .btn { display:inline-block; padding:8px 12px; background:#64B5F6; color:#fff; border-radius:6px; text-decoration:none; border:none; cursor:pointer; }
     .btn.secondary { background:#90CAF9; }
     .btn.danger { background:#ef5350; }
+
+    .review-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap:16px; margin-top:16px; }
+    .card { background:#fff; border-radius:8px; padding:16px; box-shadow:0 2px 5px rgba(0,0,0,.1); cursor:pointer; position:relative; }
+    .rating { letter-spacing:1px; }
+    .empty { opacity:.35; }
+    .cta { margin-top:10px; display:flex; gap:8px; }
+    .state { padding:32px 0; color:#444; }
   </style>
   <script src="/utils/categoryLists.js"></script>
 </head>
@@ -42,95 +47,165 @@
   <div class="container">
     <div class="top-actions">
       <h2>내 리뷰</h2>
-      <a class="btn" href="plusreviewpage.html">+ 리뷰 작성</a>
+      <div class="right-actions">
+        <select id="sortSelect" class="select" title="정렬">
+          <option value="latest">날짜순(최신)</option>
+          <option value="oldest">날짜순(오래된)</option>
+          <option value="ratingHigh">별점순(높은→낮은)</option>
+          <option value="ratingLow">별점순(낮은→높은)</option>
+        </select>
+        <a class="btn" href="plusreviewpage.html">+ 리뷰 작성</a>
+      </div>
     </div>
+
     <div id="grid" class="review-grid"></div>
+    <div id="state" class="state"></div>
   </div>
 
   <script>
-  async function requireAuth(){
-    const r = await fetch('/check-auth', { credentials:'include' }); 
-    const data = await r.json();
-    if(!data.loggedIn){ alert('로그인 후 이용 가능합니다.'); location.href='login.html'; return false; }
-    return true;
-  }
+    let MY_LIST = [];
 
-  async function loadMine(){
-    if(!(await requireAuth())) return;
-    const grid = document.getElementById('grid');
-    grid.innerHTML = '';
-    try{
-      const res = await fetch('/api/reviews/mine');
-      if(!res.ok) throw new Error('불러오기 실패');
-      const list = await res.json();
-      list.sort((a,b)=> new Date(b.created_at||b.data||b.date) - new Date(a.created_at||a.data||a.date));
-      list.forEach(rv=>{
-        const stars = '★'.repeat(rv.rating)+'<span class="empty">'+'☆'.repeat(5-rv.rating)+'</span>';
+    async function requireAuth(){
+      const r = await fetch('/check-auth', { credentials:'include' });
+      const d = await r.json();
+      if(!d.loggedIn){
+        alert('로그인 후 이용 가능합니다.');
+        location.href='login.html';
+        return false;
+      }
+      return true;
+    }
+
+    function applySort(list, how){
+      const arr = list.slice();
+      if(how === 'latest'){
+        arr.sort((a,b)=> new Date(b.created_at||0) - new Date(a.created_at||0));
+      }else if(how === 'oldest'){
+        arr.sort((a,b)=> new Date(a.created_at||0) - new Date(b.created_at||0));
+      }else if(how === 'ratingHigh'){
+        arr.sort((a,b)=> (b.rating||0) - (a.rating||0));
+      }else if(how === 'ratingLow'){
+        arr.sort((a,b)=> (a.rating||0) - (b.rating||0));
+      }
+      return arr;
+    }
+
+    function render(list){
+      const grid = document.getElementById('grid');
+      const state = document.getElementById('state');
+      grid.innerHTML = '';
+      state.textContent = '';
+
+      if(!list || list.length === 0){
+        state.textContent = '아직 내 리뷰가 없습니다. 상단의 “+ 리뷰 작성” 버튼으로 첫 리뷰를 남겨보세요!';
+        return;
+      }
+
+      list.forEach(function(rv){
+        const rating = rv.rating || 0;
+        const stars = '★'.repeat(rating) + '<span class="empty">' + '☆'.repeat(5-rating) + '</span>';
+
         const el = document.createElement('div');
-        el.className='card';
-        el.innerHTML = `
-          <h3>${rv.title}</h3>
-          <p class="rating">${stars}</p>
-          <p>${rv.restaurant_name ?? ''}</p>
-          <div class="cta">
-            <button class="btn secondary btn-edit">수정</button>
-            <button class="btn danger btn-del">삭제</button>
-          </div>
-        `;
-        el.addEventListener('click',()=>location.href=`reviewdetail.html?id=${rv.id}`);
+        el.className = 'card';
+        el.innerHTML =
+          '<h3>' + (rv.title||'') + '</h3>' +
+          '<p class="rating">' + stars + '</p>' +
+          '<p>' + (rv.restaurant_name||'') + '</p>' +
+          '<div class="cta">' +
+            '<button class="btn secondary btn-edit">수정</button>' +
+            '<button class="btn danger btn-del">삭제</button>' +
+          '</div>';
 
-        // 버튼 이벤트 (버블링 방지)
-        el.querySelector('.btn-edit').addEventListener('click',(e)=>{
-          e.stopPropagation();
-          location.href = `editreview.html?id=${rv.id}`;
+        el.addEventListener('click', function(){
+          location.href = 'reviewdetail.html?id=' + rv.id;
         });
-        el.querySelector('.btn-del').addEventListener('click', async (e)=>{
+
+        el.querySelector('.btn-edit').addEventListener('click', function(e){
+          e.stopPropagation();
+          location.href = 'editreview.html?id=' + rv.id;
+        });
+
+        el.querySelector('.btn-del').addEventListener('click', async function(e){
           e.stopPropagation();
           if(!confirm('이 리뷰를 삭제하시겠습니까?')) return;
           try{
-            const r = await fetch(`/api/reviews/${rv.id}`, { method:'DELETE' });
+            const r = await fetch('/api/reviews/' + rv.id, { method:'DELETE', credentials:'include' });
             if(!r.ok) throw new Error('삭제 실패');
-            // 화면에서 제거
-            el.remove();
-          }catch(err){ alert(err.message || '삭제에 실패했습니다.'); }
+            MY_LIST = MY_LIST.filter(function(x){ return x.id !== rv.id; });
+            render(applySort(MY_LIST, document.getElementById('sortSelect').value));
+          }catch(err){
+            alert(err.message || '삭제에 실패했습니다.');
+          }
         });
 
         grid.appendChild(el);
       });
-      if(list.length===0){ grid.innerHTML='<p>작성한 리뷰가 없습니다.</p>'; }
-    }catch(e){ grid.innerHTML='<p>오류가 발생했습니다.</p>'; }
-  }
-  window.onload = loadMine;
+    }
+
+    async function loadMine(){
+      if(!(await requireAuth())) return;
+      const state = document.getElementById('state');
+      state.textContent = '';
+
+      try{
+        const res = await fetch('/api/reviews/mine', { credentials:'include' });
+        if(!res.ok) throw new Error('내 리뷰 불러오기 실패');
+
+        const list = await res.json();
+        MY_LIST = (list || []).map(function(x){
+          return { ...x, created_at: x.created_at || x.createdAt || x.date || '' };
+        });
+
+        const how = document.getElementById('sortSelect').value;
+        render(applySort(MY_LIST, how));
+      }catch(e){
+        state.textContent = '오류가 발생했습니다.';
+        console.error(e);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+      document.getElementById('sortSelect').addEventListener('change', function(e){
+        render(applySort(MY_LIST, e.target.value));
+      });
+      loadMine();
+    });
   </script>
 
   <script>
-  (function initAuth(){
-    fetch('/check-auth', { credentials: 'include' })
-      .then(r=>r.json())
-      .then(d=>{
-        if(!d.loggedIn) return;
-        const el = document.querySelector('.auth-links');
-        if(!el) return;
-        el.innerHTML = `
-          <div style="position: relative;">
-            <button id="mypageBtn" style="background:none;border:none;color:white;cursor:pointer;">마이페이지 ▾</button>
-            <div id="mypageDropdown" style="display:none;position:absolute;right:0;background:white;color:black;padding:10px;border-radius:5px;min-width:100px;">
-              <a href="mypage.html" style="color:black;text-decoration:none;">내 정보 확인</a><br>
-              <a href="editprofile.html" style="color:black;text-decoration:none;">프로필 수정</a><br>
-              <a href="#" id="logoutLink" style="color:black;text-decoration:none;">로그아웃</a>
-            </div>
-          </div>`;
-        document.getElementById("mypageBtn")?.addEventListener("click",()=>{
-          const dd = document.getElementById("mypageDropdown");
-          dd.style.display = dd.style.display === "none" ? "block" : "none";
-        });
-        document.getElementById("logoutLink")?.addEventListener("click",(e)=>{
-          e.preventDefault();
-          fetch('/logout', { credentials:'include' }).then(()=>location.href='/');
-        });
-      });
-  })();
-  </script>
+    (function initAuth(){
+      fetch('/check-auth', { credentials:'include' })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if(!d.loggedIn) return;
+          const el = document.querySelector('.auth-links');
+          if(!el) return;
+          el.innerHTML =
+            '<div style="position: relative;">' +
+              '<button id="mypageBtn" style="background:none;border:none;color:white;cursor:pointer;">마이페이지 ▾</button>' +
+              '<div id="mypageDropdown" style="display:none;position:absolute;right:0;background:white;color:black;padding:10px;border-radius:5px;min-width:120px;">' +
+                '<a href="mypage.html" style="color:black;text-decoration:none;">내 정보 확인</a><br>' +
+                '<a href="editprofile.html" style="color:black;text-decoration:none;">프로필 수정</a><br>' +
+                '<a href="#" id="logoutLink" style="color:black;text-decoration:none;">로그아웃</a>' +
+              '</div>' +
+            '</div>';
 
+          var btn = document.getElementById('mypageBtn');
+          if(btn){
+            btn.addEventListener('click', function(){
+              var dd = document.getElementById('mypageDropdown');
+              dd.style.display = (dd.style.display === 'none' || !dd.style.display) ? 'block' : 'none';
+            });
+          }
+          var lo = document.getElementById('logoutLink');
+          if(lo){
+            lo.addEventListener('click', function(e){
+              e.preventDefault();
+              fetch('/logout', { credentials:'include' }).then(function(){ location.href='/'; });
+            });
+          }
+        });
+    })();
+  </script>
 </body>
 </html>

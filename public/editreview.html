@@ -132,7 +132,7 @@
       </div>
 
       <textarea id="content" placeholder="후기 내용을 적어주세요" required></textarea>
-      <input id="image_url" placeholder="이미지 URL (선택)">
+      <input id="image_file" type="file" accept="image/*">
 
       <div class="row">
         <button type="submit">저장</button>
@@ -142,9 +142,22 @@
   </div>
 
   <script>
+
+    let currentUserId = null;
+    async function getUserId() {
+      if (currentUserId) return currentUserId;
+      try {
+        const meRes = await fetch('/api/me', { credentials: 'include' });
+        if (!meRes.ok) return null;
+        const me = await meRes.json();
+        currentUserId = me?.id || null;
+        return currentUserId;
+      } catch { return null; }
+    }   
     const params = new URLSearchParams(location.search);
     const id = params.get('id');
     let ps;
+    let oldImageUrl = null;
 
     document.addEventListener('DOMContentLoaded', init);
 
@@ -162,8 +175,17 @@
       if(!auth.loggedIn){ alert('로그인 후 이용 가능합니다.'); location.href='login.html'; return; }
 
       // Kakao Places 준비 + 자동완성
-      ps = new kakao.maps.services.Places();
-      setupAutocomplete();
+      if (window.kakao && kakao.maps && kakao.maps.load) {
+        kakao.maps.load(() => { 
+          ps = new kakao.maps.services.Places();
+          setupAutocomplete();
+        });
+      } else {
+        const sdk = document.querySelector('script[src*="dapi.kakao.com"]');
+        const run = () => { ps = new kakao.maps.services.Places(); setupAutocomplete(); };
+        if (sdk) sdk.addEventListener('load', () => kakao.maps.load(run), { once:true });
+        else window.addEventListener('load', () => kakao.maps.load(run), { once:true });
+      }
 
       try{
         const res = await fetch(`/api/reviews/${id}`, { credentials: 'include' });
@@ -183,6 +205,9 @@
         // 좌표 세팅
         document.getElementById('lat').value = rv.lat ?? '';
         document.getElementById('lng').value = rv.lng ?? '';
+
+        // 기존 이미지 URL 보관
+        oldImageUrl = rv.image_url ?? null;
 
         fillSubFood(rv.subcategory || '');
         fillSubRegion(rv.subregion || '');
@@ -257,9 +282,36 @@
       });
     }
 
+  //  업로드 함수에서 userId 활용
+  async function uploadImageAndGetUrl(file){
+    if (!file) return null;
+    if (!window.sb) { alert('이미지 업로드 클라이언트 초기화 실패'); return null; }
+
+    const userId = await getUserId();   // 여기서 호출
+    const uid = userId ? String(userId) : 'anon';
+
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const filePath = `user-${uid}-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+    const { error } = await window.sb.storage
+      .from('review-images')
+      .upload(filePath, file, { cacheControl:'3600', upsert:false });
+
+    if (error) { console.error(error); throw new Error('이미지 업로드 실패'); }
+
+    const { data: pub } = window.sb.storage.from('review-images').getPublicUrl(filePath);
+    return pub.publicUrl;
+  }
+
     document.getElementById('form').addEventListener('submit', async (e)=>{
       e.preventDefault();
       try{
+          // 🔹 파일 업로드 시도
+          const file = document.getElementById('image_file').files?.[0];
+          let uploadedUrl = null;
+          if (file) {
+            uploadedUrl = await uploadImageAndGetUrl(file); // ← 위에 정의한 함수 사용
+          }
         const body = {
           title: title.value.trim(),
           restaurant_name: restaurant_name.value.trim(),
@@ -270,8 +322,11 @@
           regionnames: regionnames.value,
           subregion: document.getElementById('subregion').value || null,
           content: content.value.trim(),
-          image_url: image_url.value.trim() || null,
-          // 좌표 포함
+        
+          //  최종 이미지 URL: 새 업로드(우선) → 기존 값 → null
+          image_url: uploadedUrl ?? oldImageUrl ?? null,
+
+          // 좌표 
           lat: document.getElementById('lat').value ? Number(document.getElementById('lat').value) : null,
           lng: document.getElementById('lng').value ? Number(document.getElementById('lng').value) : null
         };

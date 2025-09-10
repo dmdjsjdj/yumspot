@@ -10,6 +10,7 @@ import jwt from 'jsonwebtoken';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { supabase } from './supabaseClient.js';
+import { createClient as createSbClient } from '@supabase/supabase-js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,6 +27,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 const COOKIE_NAME = process.env.COOKIE_NAME || 'ysid';
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me';
 
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY; // 필수(비공개)
+export const supabaseAdmin = createSbClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const REVIEW_BUCKET = 'review-images';
+
 // --- helpers ---
 function setAuthCookie(res, payload) {
   const { exp, iat, nbf, ...clean } = payload || {};
@@ -36,6 +42,22 @@ function setAuthCookie(res, payload) {
     secure: process.env.NODE_ENV === 'production',
     maxAge: 7 * 24 * 60 * 60 * 1000
   });
+}
+
+// 공개 URL → 파일 경로 추출
+function pathFromPublicUrl(publicUrl) {
+  if (!publicUrl) return null;
+  const marker = `/object/public/${REVIEW_BUCKET}/`;
+  const idx = publicUrl.indexOf(marker);
+  if (idx === -1) return null;
+  return publicUrl.slice(idx + marker.length); 
+}
+
+async function deleteImageByPublicUrl(publicUrl) {
+  const path = pathFromPublicUrl(publicUrl);
+  if (!path) return;
+  const { error } = await supabaseAdmin.storage.from(REVIEW_BUCKET).remove([path]);
+  if (error) console.error('Storage remove error:', error);
 }
 
 function authMiddleware(req, _res, next) {
@@ -56,23 +78,46 @@ function requireLogin(req, res, next) {
   next();
 }
 
-// --- Auth ---
 app.post('/signup', async (req, res) => {
   try {
     const { email, nickname, password } = req.body || {};
-    if (!email || !nickname || !password) return res.status(400).json({ message: '필수 항목 누락' });
 
-    const { data: exists, error: e1 } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
-    if (e1) throw e1;
-    if (exists) return res.status(409).json({ message: '이미 가입된 이메일' });
+    // 1) 이메일 형식
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      return res.status(400).json({ message: '유효한 이메일을 입력하세요.' });
+    }
 
+    // 2) 비밀번호 제한(최소 8자, 영문+숫자 포함, 특수문자 허용)
+    const pwRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d!@#$%^&*]{8,}$/;
+    if (!password || !pwRegex.test(password)) {
+      return res.status(400).json({
+        message: '비밀번호는 최소 8자, 영문+숫자를 포함해야 합니다.'
+      });
+    }
+
+    // 3) 닉네임 길이/문자 제한(선택)
+    if (!nickname || nickname.length < 2 || nickname.length > 16) {
+      return res.status(400).json({ message: '닉네임은 2~16자여야 합니다.' });
+    }
+
+    // 4) 중복 검사 (DB unique와 이중 방어)
+    const [{ data: byEmail }, { data: byNick }] = await Promise.all([
+      supabase.from('users').select('id').eq('email', email).maybeSingle(),
+      supabase.from('users').select('id').eq('nickname', nickname).maybeSingle(),
+    ]);
+    if (byEmail) return res.status(409).json({ message: '이미 가입된 이메일입니다.' });
+    if (byNick)  return res.status(409).json({ message: '이미 사용 중인 닉네임입니다.' });
+
+    // 5) 저장
     const password_hash = await bcrypt.hash(password, 10);
-    const { data: user, error: e2 } = await supabase.from('users')
+
+    const { data: user, error } = await supabase.from('users')
       .insert([{ email, nickname, password_hash }])
       .select('id, email, nickname').single();
-    if (e2) throw e2;
+    if (error) throw error;
 
-    res.json({ ok: true });
+    res.json({ ok: true, user });
   } catch (err) {
     res.status(500).json({ message: '회원가입 실패', detail: String(err.message || err) });
   }
@@ -91,7 +136,7 @@ app.post('/login', async (req, res) => {
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ message: '이메일 또는 비밀번호가 틀립니다.' });
 
-    setAuthCookie(res, { id: user.id, email: user.email, nickname: user.nickname });
+    //setAuthCookie(res, { id: user.id, email: user.email, nickname: user.nickname });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ message: '로그인 실패', detail: String(err.message || err) });
@@ -218,14 +263,40 @@ app.get('/api/reviews', async (req, res) => {
   res.json(data);
 });
 
+// 리뷰 상세 (소유자 여부 포함, 불필요한 노출 최소화)
 app.get('/api/reviews/:id', async (req, res) => {
-  const { data: rv, error } = await supabase.from('reviews').select('*')
-    .eq('id', req.params.id).maybeSingle();
-  if (error || !rv) return res.status(404).json({ message: '없음' });
+  try {
+    // 필요한 컬럼만 명시적으로 선택 (lat/lng, subcategory/subregion 포함)
+    const { data: rv, error } = await supabase
+      .from('reviews')
+      .select(`
+        id, user_id,
+        title, restaurant_name, address,
+        rating, content, image_url,
+        foodcategory, subcategory,
+        regionnames, subregion,
+        lat, lng,
+        created_at, updated_at
+      `)
+      .eq('id', req.params.id)
+      .maybeSingle();
 
-  const isOwner = !!(req.user && req.user.id === rv.user_id);
-  res.json({ ...rv, isOwner });
+    if (error) throw error;
+    if (!rv) return res.status(404).json({ message: '없음' });
+
+    // 소유자 판별
+    const isOwner = !!(req.user && req.user.id === rv.user_id);
+
+    // 응답 페이로드 구성 (소유자가 아니면 user_id 숨김)
+    const payload = { ...rv, isOwner };
+    if (!isOwner) delete payload.user_id;
+
+    return res.json(payload);
+  } catch (e) {
+    return res.status(500).json({ message: '조회 실패', detail: String(e.message || e) });
+  }
 });
+
 
 app.post('/api/reviews', requireLogin, async (req, res) => {
   const payload = req.body || {};
@@ -250,8 +321,12 @@ app.post('/api/reviews', requireLogin, async (req, res) => {
 app.put('/api/reviews/:id', requireLogin, async (req, res) => {
   const id = req.params.id;
 
-  // 소유자 확인
-  const { data: rv, error: e1 } = await supabase.from('reviews').select('user_id').eq('id', id).maybeSingle();
+  // 소유자 확인 + 기존 데이터 조회(이전 이미지 URL 비교 위해)
+  const { data: rv, error: e1 } = await supabase
+    .from('reviews')
+    .select('user_id, image_url')
+    .eq('id', id)
+    .maybeSingle();
   if (e1 || !rv) return res.status(404).json({ message: '없음' });
   if (rv.user_id !== req.user.id) return res.status(403).json({ message: '권한 없음' });
 
@@ -262,30 +337,55 @@ app.put('/api/reviews/:id', requireLogin, async (req, res) => {
     address: payload.address,
     rating: payload.rating,
     content: payload.content,
-    image_url: payload.image_url,
+    image_url: payload.image_url ?? null,
     foodcategory: payload.foodcategory,
     regionnames: payload.regionnames,
     subcategory: payload.subcategory || null,
-    subregion: payload.subregion || null
+    subregion: payload.subregion || null,
+    lat: payload.lat ?? null,
+    lng: payload.lng ?? null,
   };
+
+  const prevUrl = rv.image_url || null;
+  const nextUrl = update.image_url || null;
+
   const { error } = await supabase.from('reviews').update(update).eq('id', id);
   if (error) return res.status(500).json({ message: '수정 실패' });
+
+  // 이미지가 교체되었으면 이전 파일 삭제(서버에서 수행)
+  if (prevUrl && nextUrl && prevUrl !== nextUrl) {
+    deleteImageByPublicUrl(prevUrl).catch(console.error);
+  }
+  // (선택) 새 URL이 null인데 이전이 존재 → 사용자 요청으로 삭제한 상황이라면 이전 것 삭제
+  if (!nextUrl && prevUrl) {
+    deleteImageByPublicUrl(prevUrl).catch(console.error);
+  }
+
   res.json({ ok: true });
 });
 
 app.delete('/api/reviews/:id', requireLogin, async (req, res) => {
   const id = req.params.id;
 
-  const { data: rv, error: e1 } = await supabase.from('reviews').select('user_id').eq('id', id).maybeSingle();
+  const { data: rv, error: e1 } = await supabase
+    .from('reviews')
+    .select('user_id, image_url')
+    .eq('id', id)
+    .maybeSingle();
   if (e1 || !rv) return res.status(404).json({ message: '없음' });
   if (rv.user_id !== req.user.id) return res.status(403).json({ message: '권한 없음' });
 
+  // 1) 이미지가 있으면 스토리지에서 삭제 시도
+  if (rv.image_url) {
+    try { await deleteImageByPublicUrl(rv.image_url); } catch (e) { console.error(e); }
+  }
+
+  // 2) 리뷰 삭제
   const { error } = await supabase.from('reviews').delete().eq('id', id);
   if (error) return res.status(500).json({ message: '삭제 실패' });
+
   res.json({ ok: true });
 });
 
-// SPA 라우팅 필요시 아래 주석 해제
-// app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'home.html')));
 
 app.listen(PORT, () => console.log(`Server running http://localhost:${PORT}`));

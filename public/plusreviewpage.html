@@ -147,6 +147,19 @@
   </div>
 
   <script>
+
+    let currentUserId = null;
+    async function getUserId() {
+      if (currentUserId) return currentUserId;
+      try {
+        const meRes = await fetch('/api/me', { credentials: 'include' });
+        if (!meRes.ok) return null;
+        const me = await meRes.json();
+        currentUserId = me?.id || null;
+        return currentUserId;
+      } catch { return null; }
+    }
+
     // 디바운스 유틸
     function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
 
@@ -244,9 +257,16 @@
       });
     }
 
+
     async function uploadImageAndGetUrl(file){
       if (!file) return null;
       if (!window.sb) { alert('이미지 업로드 클라이언트 초기화 실패'); return null; }
+
+      const userId = await getUserId(); // ← 유저 id 붙여서 충돌 방지
+      const uid = userId ? String(userId) : 'anon';
+
+      // 크기 제한
+      if (file.size > 5 * 1024 * 1024) { throw new Error('이미지 용량은 5MB 이하만 가능합니다.'); }
 
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
       const filePath = `user-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`

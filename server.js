@@ -99,11 +99,25 @@ app.post('/login', async (req, res) => {
 });
 
 app.get('/logout', (req, res) => {
-  res.clearCookie(COOKIE_NAME, {
+  const name = COOKIE_NAME || 'ysid';
+  const opts = {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
-  });
+    path: '/', // 설정 때 기본값과 동일하게
+  };
+
+  // 1) 정상 삭제
+  res.clearCookie(name, opts);
+  // 2) 혹시 남는 경우 대비: 만료 쿠키 재설정
+  res.cookie(name, '', { ...opts, maxAge: 0 });
+
+  // 3) 과거 기본 이름(ysid)도 함께 제거 (혹시 이름 바꾼 적 있을 때)
+  if (name !== 'ysid') {
+    res.clearCookie('ysid', opts);
+    res.cookie('ysid', '', { ...opts, maxAge: 0 });
+  }
+
   res.json({ ok: true });
 });
 

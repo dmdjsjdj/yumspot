@@ -244,8 +244,22 @@
       });
     }
 
-    // (업로드 미사용: 그대로 null 반환)
-    async function uploadImageAndGetUrl(file){ return null; }
+    async function uploadImageAndGetUrl(file){
+      if (!file) return null;
+      if (!window.sb) { alert('이미지 업로드 클라이언트 초기화 실패'); return null; }
+
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+      const filePath = `user-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+
+      const { data, error } = await window.sb
+        .storage.from('review-images')
+        .upload(filePath, file, { cacheControl: '3600', upsert: false })
+
+      if (error) { console.error(error); throw new Error('이미지 업로드 실패'); }
+
+      const { data: pub } = window.sb.storage.from('review-images').getPublicUrl(filePath)
+      return pub.publicUrl
+    }
 
     document.getElementById('reviewForm').addEventListener('submit', async (e)=>{
       e.preventDefault();
@@ -317,5 +331,6 @@
   </script>
   <!-- Kakao JS SDK (services 라이브러리 포함) -->
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=3382e6a214a404a815ed75a04889a2cd&libraries=services&autoload=false"></script>
+  <script type="module" src="/utils/supabaseClient.browser.js"></script>
 </body>
 </html>

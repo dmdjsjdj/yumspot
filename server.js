@@ -98,6 +98,46 @@ app.post('/login', async (req, res) => {
   }
 });
 
+// 닉네임 + 이메일로 직접 비밀번호 변경 (비로그인 상태에서도 가능)
+app.post('/password/reset-direct', async (req, res) => {
+  try {
+    const { email, nickname, new_password } = (req.body || {});
+    if (!email || !nickname || !new_password) {
+      return res.status(400).json({ message: '이메일/닉네임/새 비밀번호가 필요합니다.' });
+    }
+
+    // 1) 사용자 조회 (닉네임 + 이메일 모두 일치해야)
+    const { data: user, error: e1 } = await supabase
+      .from('users')
+      .select('id, email, nickname')
+      .eq('email', email)
+      .eq('nickname', nickname)
+      .maybeSingle();
+
+    // 보안상 계정 존재 유무를 굳이 드러내지 않으려면 동일 응답 사용 가능
+    if (e1) throw e1;
+    if (!user) {
+      return res.status(200).json({ ok: true }); // 존재 여부 숨김(권장)
+      // 또는 아래처럼 명확히 에러를 띄우고 싶다면:
+      // return res.status(404).json({ message: '일치하는 계정을 찾을 수 없습니다.' });
+    }
+
+    // 2) 비밀번호 해시 후 저장
+    const password_hash = await bcrypt.hash(new_password, 10);
+    const { error: e2 } = await supabase
+      .from('users')
+      .update({ password_hash })
+      .eq('id', user.id);
+    if (e2) throw e2;
+
+    // 3) 응답
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ message: '비밀번호 변경 실패', detail: String(err.message || err) });
+  }
+});
+
+
 app.get('/logout', (req, res) => {
   const name = COOKIE_NAME || 'ysid';
   const opts = {

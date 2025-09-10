@@ -19,6 +19,18 @@
     button:hover { background:#42A5F5; }
     .row { display:flex; gap:8px; }
     .row > * { flex:1; }
+
+    .suggest-box{position:relative;}
+    .suggest-list{
+      position:absolute; z-index:20; top:100%; left:0; right:0;
+      background:#fff; border:1px solid #ddd; border-radius:6px;
+      max-height:240px; overflow:auto; box-shadow:0 4px 10px rgba(0,0,0,.08);
+      display:none;
+    }
+    .suggest-item{padding:10px 12px; cursor:pointer;}
+    .suggest-item:hover{background:#f5f7fb;}
+    .suggest-title{font-weight:bold;}
+    .suggest-addr{font-size:12px; color:#555; margin-top:2px;}
   </style>
   <script src="/utils/categoryLists.js"></script>
 </head>
@@ -40,29 +52,31 @@
     <h2>리뷰 수정</h2>
     <form id="form">
       <input id="title" placeholder="리뷰 제목" required>
+
       <div class="row">
-        <input id="restaurant_name" placeholder="식당 이름" required>
+        <div class="suggest-box">
+          <input id="restaurant_name" placeholder="식당 이름" required autocomplete="off">
+          <div id="suggest" class="suggest-list"></div>
+        </div>
         <input id="address" placeholder="주소" required>
       </div>
+
+      <!-- 좌표 숨김값 -->
+      <input type="hidden" id="lat">
+      <input type="hidden" id="lng">
 
       <div class="row">
         <select id="rating" required>
           <option value="">평점</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
         </select>
 
-        <!-- 음식 대/소분류 -->
         <select id="foodcategory" required></select>
-        <select id="subcategory">
-          <option value="">소분류(선택)</option>
-        </select>
+        <select id="subcategory"><option value="">소분류(선택)</option></select>
       </div>
 
       <div class="row">
-        <!-- 지역 대/소분류 -->
         <select id="regionnames" required></select>
-        <select id="subregion">
-          <option value="">세부 지역(선택)</option>
-        </select>
+        <select id="subregion"><option value="">세부 지역(선택)</option></select>
       </div>
 
       <textarea id="content" placeholder="후기 내용을 적어주세요" required></textarea>
@@ -75,26 +89,32 @@
     </form>
   </div>
 
+  <!-- Kakao JS SDK -->
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=3382e6a214a404a815ed75a04889a2cd&libraries=services"></script>
 
   <script>
     const params = new URLSearchParams(location.search);
     const id = params.get('id');
+    let ps;
 
     document.addEventListener('DOMContentLoaded', init);
 
     async function init(){
-      // 대분류 초기화 (기존 동일)
+      // 분류 채우기
       const f = document.getElementById('foodcategory');
       const r = document.getElementById('regionnames');
       f.innerHTML = '<option value="">음식 대분류</option>' + (window.foodCategories||[]).map(c=>`<option>${c}</option>`).join('');
       r.innerHTML = '<option value="">지역 대분류</option>' + (window.regionCategories||[]).map(c=>`<option>${c}</option>`).join('');
-
       document.getElementById('foodcategory').addEventListener('change', fillSubFood);
       document.getElementById('regionnames').addEventListener('change', fillSubRegion);
 
-      // ✅ 권한/데이터 로드 (쿠키 포함)
+      // 권한
       const auth = await fetch('/check-auth', { credentials: 'include' }).then(r=>r.json());
       if(!auth.loggedIn){ alert('로그인 후 이용 가능합니다.'); location.href='login.html'; return; }
+
+      // Kakao Places 준비 + 자동완성
+      ps = new kakao.maps.services.Places();
+      setupAutocomplete();
 
       try{
         const res = await fetch(`/api/reviews/${id}`, { credentials: 'include' });
@@ -110,6 +130,10 @@
         regionnames.value = rv.regionnames ?? '';
         content.value = rv.content ?? '';
         image_url.value = rv.image_url ?? '';
+
+        // 좌표 세팅
+        document.getElementById('lat').value = rv.lat ?? '';
+        document.getElementById('lng').value = rv.lng ?? '';
 
         fillSubFood(rv.subcategory || '');
         fillSubRegion(rv.subregion || '');
@@ -137,6 +161,53 @@
       if(selected) subSel.value = selected;
     }
 
+    // 자동완성
+    function setupAutocomplete(){
+      const $name = document.getElementById('restaurant_name');
+      const $addr = document.getElementById('address');
+      const $lat  = document.getElementById('lat');
+      const $lng  = document.getElementById('lng');
+      const $list = document.getElementById('suggest');
+
+      const debounce = (fn, ms)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
+      const search = debounce(q=>{
+        if(!q || q.trim().length < 2){ $list.style.display='none'; $list.innerHTML=''; return; }
+        ps.keywordSearch(q.trim(), (data, status)=>{
+          if(status !== kakao.maps.services.Status.OK || !data?.length){
+            $list.style.display='none'; $list.innerHTML=''; return;
+          }
+          $list.innerHTML = data.slice(0,8).map(d=>`
+            <div class="suggest-item"
+              data-name="${d.place_name}"
+              data-addr="${d.road_address_name||d.address_name||''}"
+              data-lat="${d.y}" data-lng="${d.x}">
+              <div class="suggest-title">${d.place_name}</div>
+              <div class="suggest-addr">${d.road_address_name || d.address_name || ''}</div>
+            </div>`).join('');
+          $list.style.display='block';
+        });
+      }, 300);
+
+      $name.addEventListener('input', e=> search(e.target.value));
+
+      $list.addEventListener('click', e=>{
+        const item = e.target.closest('.suggest-item'); if(!item) return;
+        $name.value = item.dataset.name || $name.value;
+        if(item.dataset.addr) $addr.value = item.dataset.addr;
+        if(item.dataset.lat && item.dataset.lng){
+          $lat.value = item.dataset.lat;
+          $lng.value = item.dataset.lng;
+        }
+        $list.style.display='none'; $list.innerHTML='';
+      });
+
+      document.addEventListener('click', e=>{
+        if(!document.querySelector('.suggest-box')?.contains(e.target)){
+          $list.style.display='none';
+        }
+      });
+    }
+
     document.getElementById('form').addEventListener('submit', async (e)=>{
       e.preventDefault();
       try{
@@ -150,11 +221,13 @@
           regionnames: regionnames.value,
           subregion: document.getElementById('subregion').value || null,
           content: content.value.trim(),
-          image_url: image_url.value.trim() || null
+          image_url: image_url.value.trim() || null,
+          // 좌표 포함
+          lat: document.getElementById('lat').value ? Number(document.getElementById('lat').value) : null,
+          lng: document.getElementById('lng').value ? Number(document.getElementById('lng').value) : null
         };
         if(!body.title || !body.restaurant_name || !body.address || !body.rating || !body.foodcategory || !body.regionnames){
-          alert('필수 항목을 확인해주세요.');
-          return;
+          alert('필수 항목을 확인해주세요.'); return;
         }
         const res = await fetch(`/api/reviews/${id}`, {
           method:'PUT',
@@ -165,13 +238,11 @@
         if(!res.ok) throw new Error('수정 실패');
         alert('수정되었습니다.');
         location.href = `reviewdetail.html?id=${id}`;
-      }catch(e){
-        alert(e.message || '수정에 실패했습니다.');
-      }
+      }catch(e){ alert(e.message || '수정에 실패했습니다.'); }
     });
   </script>
 
-  <!-- 하단 네비 스니펫(이미 include 적용되어 있어 그대로 사용) -->
+  <!-- 네비 스니펫 -->
   <script>
   (function initAuth(){
     fetch('/check-auth', { credentials: 'include' })
@@ -183,7 +254,7 @@
         el.innerHTML = `
           <div style="position: relative;">
             <button id="mypageBtn" style="background:none;border:none;color:white;cursor:pointer;">마이페이지 ▾</button>
-            <div id="mypageDropdown" style="display:none;position:absolute;right:0;background:white;color:black;padding:10px;border-radius:5px;">
+            <div id="mypageDropdown" style="display:none;position:absolute;right:0;background:white;color:black;padding:10px;border-radius:5px;min-width:140px;">
               <a href="mypage.html" style="color:black;text-decoration:none;">내 정보 확인</a><br>
               <a href="editprofile.html" style="color:black;text-decoration:none;">프로필 수정</a><br>
               <a href="#" id="logoutLink" style="color:black;text-decoration:none;">로그아웃</a>
@@ -200,6 +271,5 @@
       });
   })();
   </script>
-
 </body>
 </html>

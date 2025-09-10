@@ -22,6 +22,8 @@
     .meta { color:#555; font-size:14px; }
   </style>
   <script src="/utils/categoryLists.js"></script>
+  <!-- Kakao JS SDK -->
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=3382e6a214a404a815ed75a04889a2cd&libraries=services"></script>
 </head>
 <body>
   <div class="header"><a href="/">YumSpot - 맛집을 찾아보자!</a></div>
@@ -41,100 +43,134 @@
     <div id="card" class="card"></div>
   </div>
 
-    <script>
-        const params = new URLSearchParams(location.search);
-        const id = params.get('id');
+  <script>
+    const params = new URLSearchParams(location.search);
+    const id = params.get('id');
 
-        async function loadDetail(){
-            const el = document.getElementById('card');
-            el.innerHTML = '';
+    async function loadDetail(){
+      const el = document.getElementById('card');
+      el.innerHTML = '';
+      try{
+        const res = await fetch(`/api/reviews/${id}`);
+        if(!res.ok) throw new Error('불러오기 실패');
+        const rv = await res.json();
+
+        // 소유자 판단
+        let isOwner = !!rv.isOwner;
+        if(!isOwner && rv.user_id !== undefined){
+          try {
+            const me = await fetch('/api/me', { credentials:'include' }).then(r=>r.ok?r.json():null);
+            if(me && (me.id === rv.user_id || me.user_id === rv.user_id)) isOwner = true;
+          } catch(_) {}
+        }
+
+        const stars='★'.repeat(rv.rating)+'<span class="empty">'+'☆'.repeat(5-rv.rating)+'</span>';
+        el.innerHTML = `
+          <div class="top">
+            <h2>${rv.title}</h2>
+            <div>
+              ${isOwner ? `
+                <button class="btn" id="editBtn">수정</button>
+                <button class="btn" id="delBtn" style="background:#ef5350;">삭제</button>
+              ` : ``}
+              <button class="btn" onclick="history.back()">뒤로</button>
+            </div>
+          </div>
+          <p class="rating">${stars}</p>
+          <p class="meta">카테고리: ${rv.foodcategory ?? '-'} | 지역: ${rv.regionnames ?? '-'}</p>
+          <p class="meta">식당: ${rv.restaurant_name ?? ''}</p>
+          <p class="meta">주소: <span id="addr">${rv.address ?? ''}</span> <button class="btn" style="padding:6px 10px;" onclick="copyAddr()">복사</button></p>
+          ${rv.image_url ? `<img src="${rv.image_url}" alt="review image">` : ''}
+          <p>${(rv.content||'').replace(/\n/g,'<br>')}</p>
+
+          <!-- 지도 영역 -->
+          <div id="map" style="width:100%;height:300px;border-radius:8px;margin-top:10px;"></div>
+        `;
+
+        if(isOwner){
+          document.getElementById('editBtn').addEventListener('click', ()=>{
+            location.href = `editreview.html?id=${rv.id}`;
+          });
+          document.getElementById('delBtn').addEventListener('click', async ()=>{
+            if(!confirm('이 리뷰를 삭제하시겠습니까?')) return;
             try{
-            const res = await fetch(`/api/reviews/${id}`);
-            if(!res.ok) throw new Error('불러오기 실패');
-            const rv = await res.json();
-
-            // 소유자 판단: isOwner 우선, 없으면 me.id와 rv.user_id 비교
-            let isOwner = !!rv.isOwner;
-            if(!isOwner && rv.user_id !== undefined){
-                try {
-                const me = await fetch('/api/me', { credentials:'include' }).then(r=>r.ok?r.json():null);
-                if(me && (me.id === rv.user_id || me.user_id === rv.user_id)) isOwner = true;
-                } catch(_) {}
-            }
-
-            const stars='★'.repeat(rv.rating)+'<span class="empty">'+'☆'.repeat(5-rv.rating)+'</span>';
-            el.innerHTML = `
-                <div class="top">
-                <h2>${rv.title}</h2>
-                <div>
-                    ${isOwner ? `
-                    <button class="btn" id="editBtn">수정</button>
-                    <button class="btn" id="delBtn" style="background:#ef5350;">삭제</button>
-                    ` : ``}
-                    <button class="btn" onclick="history.back()">뒤로</button>
-                </div>
-                </div>
-                <p class="rating">${stars}</p>
-                <p class="meta">카테고리: ${rv.foodcategory ?? '-'} | 지역: ${rv.regionnames ?? '-'}</p>
-                <p class="meta">식당: ${rv.restaurant_name ?? ''}</p>
-                <p class="meta">주소: <span id="addr">${rv.address ?? ''}</span> <button class="btn" style="padding:6px 10px;" onclick="copyAddr()">복사</button></p>
-                ${rv.image_url ? `<img src="${rv.image_url}" alt="review image">` : ''}
-                <p>${(rv.content||'').replace(/\n/g,'<br>')}</p>
-            `;
-
-            if(isOwner){
-                document.getElementById('editBtn').addEventListener('click', ()=>{
-                location.href = `editreview.html?id=${rv.id}`;
-                });
-                document.getElementById('delBtn').addEventListener('click', async ()=>{
-                if(!confirm('이 리뷰를 삭제하시겠습니까?')) return;
-                try{
-                    const r = await fetch(`/api/reviews/${rv.id}`, { method:'DELETE' });
-                    if(!r.ok) throw new Error('삭제 실패');
-                    alert('삭제되었습니다.');
-                    location.href = 'myreview.html';
-                }catch(e){ alert(e.message || '삭제에 실패했습니다.'); }
-                });
-            }
-            }catch(e){
-            document.getElementById('card').innerHTML = '<p>리뷰를 불러오지 못했습니다.</p>';
-            }
-        }
-        function copyAddr(){
-            const txt = document.getElementById('addr').textContent;
-            navigator.clipboard.writeText(txt).then(()=>alert('주소가 복사되었습니다.'));
-        }
-        window.onload = loadDetail;
-    </script>
-
-    <script>
-    (function initAuth(){
-      fetch('/check-auth', { credentials: 'include' })
-        .then(r=>r.json())
-        .then(d=>{
-          if(!d.loggedIn) return;
-          const el = document.querySelector('.auth-links');
-          if(!el) return;
-          el.innerHTML = `
-            <div style="position: relative;">
-              <button id="mypageBtn" style="background:none;border:none;color:white;cursor:pointer;">마이페이지 ▾</button>
-              <div id="mypageDropdown" style="display:none;position:absolute;right:0;background:white;color:black;padding:10px;border-radius:5px;">
-                <a href="mypage.html" style="color:black;text-decoration:none;">내 정보 확인</a><br>
-                <a href="editprofile.html" style="color:black;text-decoration:none;">프로필 수정</a><br>
-                <a href="#" id="logoutLink" style="color:black;text-decoration:none;">로그아웃</a>
-              </div>
-            </div>`;
-          document.getElementById("mypageBtn")?.addEventListener("click",()=>{
-            const dd = document.getElementById("mypageDropdown");
-            dd.style.display = dd.style.display === "none" ? "block" : "none";
+              const r = await fetch(`/api/reviews/${rv.id}`, { method:'DELETE', credentials:'include' });
+              if(!r.ok) throw new Error('삭제 실패');
+              alert('삭제되었습니다.');
+              location.href = 'myreview.html';
+            }catch(e){ alert(e.message || '삭제에 실패했습니다.'); }
           });
-          document.getElementById("logoutLink")?.addEventListener("click",(e)=>{
-            e.preventDefault();
-            fetch('/logout', { credentials:'include' }).then(()=>location.href='/');
-          });
+        }
+
+        // 지도 렌더
+        renderMap(rv);
+      }catch(e){
+        document.getElementById('card').innerHTML = '<p>리뷰를 불러오지 못했습니다.</p>';
+      }
+    }
+
+    function renderMap(rv){
+      const $map = document.getElementById('map');
+      function draw(lat, lng){
+        const center = new kakao.maps.LatLng(lat, lng);
+        const map = new kakao.maps.Map($map, { center, level: 3 });
+        new kakao.maps.Marker({ position: center, map });
+      }
+
+      // 1) 좌표가 저장돼 있으면 바로 표시
+      if (rv.lat != null && rv.lng != null) {
+        draw(Number(rv.lat), Number(rv.lng));
+        return;
+      }
+
+      // 2) 없으면 식당명+주소로 검색해서 표시
+      const ps = new kakao.maps.services.Places();
+      const q = rv.restaurant_name ? (rv.address ? `${rv.restaurant_name} ${rv.address}` : rv.restaurant_name) : rv.address;
+      if(!q){ $map.innerHTML = '<p style="color:#555">지도 정보를 표시할 수 없습니다.</p>'; return; }
+
+      ps.keywordSearch(q, (data, status)=>{
+        if(status !== kakao.maps.services.Status.OK || !data?.length){
+          $map.innerHTML = '<p style="color:#555">지도 정보를 표시할 수 없습니다.</p>'; return;
+        }
+        const lat = Number(data[0].y), lng = Number(data[0].x);
+        draw(lat, lng);
+      });
+    }
+
+    function copyAddr(){
+      const txt = document.getElementById('addr').textContent;
+      navigator.clipboard.writeText(txt).then(()=>alert('주소가 복사되었습니다.'));
+    }
+    window.onload = loadDetail;
+  </script>
+
+  <script>
+  (function initAuth(){
+    fetch('/check-auth', { credentials: 'include' })
+      .then(r=>r.json())
+      .then(d=>{
+        if(!d.loggedIn) return;
+        const el = document.querySelector('.auth-links');
+        if(!el) return;
+        el.innerHTML = `
+          <div style="position: relative;">
+            <button id="mypageBtn" style="background:none;border:none;color:white;cursor:pointer;">마이페이지 ▾</button>
+            <div id="mypageDropdown" style="display:none;position:absolute;right:0;background:white;color:black;padding:10px;border-radius:5px;min-width:140px;">
+              <a href="mypage.html" style="color:black;text-decoration:none;">내 정보 확인</a><br>
+              <a href="editprofile.html" style="color:black;text-decoration:none;">프로필 수정</a><br>
+              <a href="#" id="logoutLink" style="color:black;text-decoration:none;">로그아웃</a>
+            </div>
+          </div>`;
+        document.getElementById("mypageBtn")?.addEventListener("click",()=>{
+          const dd = document.getElementById("mypageDropdown");
+          dd.style.display = dd.style.display === "none" ? "block" : "none";
         });
-    })();
-    </script>
-
+        document.getElementById("logoutLink")?.addEventListener("click",(e)=>{
+          e.preventDefault();
+          fetch('/logout', { credentials:'include' }).then(()=>location.href='/');
+        });
+      });
+  })();
+  </script>
 </body>
 </html>

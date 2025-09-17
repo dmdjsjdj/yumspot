@@ -19,6 +19,7 @@
     .card { background:#fff; border-radius:8px; padding:16px; box-shadow:0 2px 5px rgba(0,0,0,.1); cursor:pointer; }
     .rating { letter-spacing:1px; }
     .empty { opacity:.4; }
+    .meta { color:#555; font-size:12px; }
   </style>
   <!-- 전역 카테고리 로드 -->
   <script src="/utils/categoryLists.js"></script>
@@ -125,7 +126,10 @@
         const stars = '★'.repeat(rv.rating) + '<span class="empty">' + '☆'.repeat(5 - rv.rating) + '</span>';
         const el = document.createElement('div');
         el.className = 'card';
-        el.innerHTML = `<h3>${rv.title}</h3><p class="rating">${stars}</p><p>${rv.restaurant_name ?? ''}</p>`;
+        el.innerHTML = `<h3>${rv.title}</h3><p class="rating">${stars}</p>
+        <p>${rv.restaurant_name ?? ''}</p>
+        <p class="meta">작성일: ${fmtDate(rv.created_at)}</p>
+        `;
         el.addEventListener('click', () => location.href = `reviewdetail.html?id=${rv.id}`);
         grid.appendChild(el);
       });

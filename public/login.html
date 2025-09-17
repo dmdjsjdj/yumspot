@@ -71,12 +71,11 @@
       .header { font-size: 20px; padding: 16px; }
     }
 
-    .pw-box { position: relative; }
-    .pw-box input { width: 100%; padding-right: 40px; }
-    .togglePw {
-      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-      background: none; border: none; cursor: pointer; font-size: 16px;
-    }
+    /* 비번 입력 줄과 토글 체크박스 정렬 */
+    .pw-row { display:flex; gap:8px; align-items:center; }
+    .pw-row input[type="password"],
+    .pw-row input[type="text"] { flex:1; }   /* 가로 꽉 */
+    .pw-toggle { display:flex; align-items:center; gap:6px; font-size:14px; color:#333; }
   </style>
   <script src="/utils/categoryLists.js"></script>
 </head>
@@ -100,10 +99,12 @@
     <h2>로그인</h2>
     <form id="loginForm">
       <input id="email" type="email" placeholder="이메일" required>
-      <div class="pw-box">
-        <input type="password" id="password" placeholder="비밀번호" required>
-        <button type="button" class="togglePw" onclick="togglePw('password', this)">👁</button>
+      <div class="pw-row">
+        <input type="password" id="loginPassword" placeholder="비밀번호" required>
       </div>
+      <label class="pw-toggle">
+        <input type="checkbox" id="showPwLogin"> 비밀번호 보기
+      </label>
       <button type="submit">로그인</button>
       <p class="helper"><a href="findpassword.html">비밀번호 찾기</a></p>
     </form>
@@ -162,16 +163,9 @@
   </script>
 
   <script>
-  function togglePw(inputId, btn){
-    const input = document.getElementById(inputId);
-    if(input.type === "password"){
-      input.type = "text";
-      btn.textContent = "🙈";
-    } else {
-      input.type = "password";
-      btn.textContent = "👁";
-    }
-  }
+  document.addEventListener('DOMContentLoaded', () => {
+    bindPwCheckbox('showPwLogin', ['loginPassword']);
+  });
   </script>
 
 </body>

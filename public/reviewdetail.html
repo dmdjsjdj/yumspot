@@ -63,6 +63,9 @@
         }
 
         const stars='★'.repeat(rv.rating)+'<span class="empty">'+'☆'.repeat(5-rv.rating)+'</span>';
+        const dateText = rv.created_at
+        ? new Date(rv.created_at).toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' })
+        : '-';
         el.innerHTML = `
           <div class="top">
             <h2>${rv.title}</h2>
@@ -75,6 +78,7 @@
             </div>
           </div>
           <p class="rating">${stars}</p>
+          <p class="meta">작성일: ${dateText}</p>
           <p class="meta">카테고리: ${rv.foodcategory ?? '-'} | 지역: ${rv.regionnames ?? '-'}</p>
           <p class="meta">식당: ${rv.restaurant_name ?? ''}</p>
           <p class="meta">주소: <span id="addr">${rv.address ?? ''}</span> <button class="btn" style="padding:6px 10px;" onclick="copyAddr()">복사</button></p>

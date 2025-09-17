@@ -47,12 +47,13 @@
   <div class="container">
     <div class="top-actions">
       <h2>내 리뷰</h2>
-      <div class="right-actions">
-        <select id="sortSelect" class="select" title="정렬">
+      <div style="display:flex; gap:8px; align-items:center;">
+        <select id="sortSelect" class="btn" style="background:#fff; color:#333;">
           <option value="latest">날짜순(최신)</option>
           <option value="oldest">날짜순(오래된)</option>
-          <option value="ratingHigh">별점순(높은→낮은)</option>
-          <option value="ratingLow">별점순(낮은→높은)</option>
+          <option value="ratingDesc">별점순(높은↓)</option>
+          <option value="ratingAsc">별점순(낮은↑)</option>
+          <option value="bookmark">북마크순</option>
         </select>
         <a class="btn" href="plusreviewpage.html">+ 리뷰 작성</a>
       </div>
@@ -101,20 +102,24 @@
         return;
       }
 
-      list.forEach(function(rv){
-        const rating = rv.rating || 0;
-        const stars = '★'.repeat(rating) + '<span class="empty">' + '☆'.repeat(5-rating) + '</span>';
+      list.forEach(rv => {
+        const dateText = rv.created_at
+          ? new Date(rv.created_at).toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' })
+          : '-';
+        const stars = '★'.repeat(rv.rating)+'<span class="empty">'+'☆'.repeat(5-rv.rating)+'</span>';
 
         const el = document.createElement('div');
         el.className = 'card';
-        el.innerHTML =
-          '<h3>' + (rv.title||'') + '</h3>' +
-          '<p class="rating">' + stars + '</p>' +
-          '<p>' + (rv.restaurant_name||'') + '</p>' +
-          '<div class="cta">' +
-            '<button class="btn secondary btn-edit">수정</button>' +
-            '<button class="btn danger btn-del">삭제</button>' +
-          '</div>';
+        el.innerHTML = `
+          <h3>${rv.title}</h3>
+          <p class="rating">${stars}</p>
+          <p class="meta">작성일: ${dateText}</p>
+          <p>${rv.restaurant_name ?? ''}</p>
+          <div class="cta">
+            <button class="btn secondary btn-edit">수정</button>
+            <button class="btn danger btn-del">삭제</button>
+          </div>
+        `;
 
         el.addEventListener('click', function(){
           location.href = 'reviewdetail.html?id=' + rv.id;

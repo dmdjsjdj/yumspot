@@ -221,18 +221,33 @@ app.get('/api/reviews/mine', requireLogin, async (req, res) => {
   try {
     const sort = (req.query.sort || 'latest').toLowerCase();
 
-    // 기본 선택 컬럼 (myreview.html에서 사용하는 값들)
     let query = supabase
       .from('reviews')
-      .select('id, title, rating, restaurant_name, created_at')
+      .select('id, title, rating, restaurant_name, image_url, created_at')
       .eq('user_id', req.user.id);
 
-    // 정렬 옵션
-    if (sort === 'stars') {
-      query = query.order('rating', { ascending: false }).order('created_at', { ascending: false });
-    } else {
-      // latest (기본)
-      query = query.order('created_at', { ascending: false });
+    // 정렬 옵션 매핑
+    switch (sort) {
+      case 'oldest':
+        query = query.order('created_at', { ascending: true });
+        break;
+      case 'ratinghigh':     // 별점 높은→낮은
+      case 'stars':          // (호환)
+        query = query
+          .order('rating', { ascending: false })
+          .order('created_at', { ascending: false });
+        break;
+      case 'ratinglow':      // 별점 낮은→높은
+        query = query
+          .order('rating', { ascending: true })
+          .order('created_at', { ascending: false });
+        break;
+      // case 'bookmark': // 북마크 구현 시 여기서 조인/카운트 정렬
+      //   break;
+      case 'latest':
+      default:
+        query = query.order('created_at', { ascending: false });
+        break;
     }
 
     const { data, error } = await query;
@@ -243,6 +258,7 @@ app.get('/api/reviews/mine', requireLogin, async (req, res) => {
     res.status(500).json({ message: '조회 실패', detail: String(e.message || e) });
   }
 });
+
 
 // --- Reviews ---
 app.get('/api/reviews/recent', async (_req, res) => {

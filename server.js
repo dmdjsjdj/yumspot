@@ -118,7 +118,9 @@ app.post('/login', async (req, res) => {
     if (!email || !password) return res.status(400).json({ message: '필수 항목 누락' });
 
     const { data: user, error } = await supabase
-      .from('users').select('id, email, nickname, password_hash').eq('email', email).maybeSingle();
+      .from('users').select('id, email, nickname, password_hash')
+      .eq('email', email).maybeSingle();
+
     if (error) throw error;
     if (!user) return res.status(401).json({ message: '이메일 또는 비밀번호가 틀립니다.' });
 
@@ -126,11 +128,13 @@ app.post('/login', async (req, res) => {
     if (!ok) return res.status(401).json({ message: '이메일 또는 비밀번호가 틀립니다.' });
 
     setAuthCookie(res, { id: user.id, email: user.email, nickname: user.nickname });
+
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ message: '로그인 실패', detail: String(err.message || err) });
   }
 });
+
 
 // 닉네임 + 이메일로 직접 비밀번호 변경 (비로그인 상태에서도 가능)
 app.post('/password/reset-direct', async (req, res) => {

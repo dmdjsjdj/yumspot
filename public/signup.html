@@ -79,18 +79,12 @@
     /* 입력–토글 레이아웃 */
     .pw-row { margin-top: 8px; }
 
-    /* 체크박스와 라벨을 한 줄로 */
-    .pw-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;           /* 체크박스와 글자 간격 */
-      font-size: 14px;
-      color: #333;
-      margin: 6px 0 0 0;  /* 위쪽만 살짝 여백 */
-    }
-    .pw-toggle input[type="checkbox"] {
-      margin: 0;          /* 기본 마진 제거 */
-    }
+/* 한 줄로, 가운데 정렬, 줄바꿈 방지 */
+.pw-toggle{
+  display:flex; align-items:center; gap:8px;
+  width:max-content; margin:6px 0 0 auto; white-space:nowrap;
+}
+.pw-toggle input{ width:auto; } 
 
   </style>
   <script src="/utils/categoryLists.js"></script>

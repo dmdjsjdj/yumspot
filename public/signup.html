@@ -75,6 +75,23 @@
     .pw-row input[type="password"],
     .pw-row input[type="text"] { flex:1; }   /* 가로 꽉 */
     .pw-toggle { display:flex; align-items:center; gap:6px; font-size:14px; color:#333; }
+
+    /* 입력–토글 레이아웃 */
+    .pw-row { margin-top: 8px; }
+
+    /* 체크박스와 라벨을 한 줄로 */
+    .pw-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;           /* 체크박스와 글자 간격 */
+      font-size: 14px;
+      color: #333;
+      margin: 6px 0 0 0;  /* 위쪽만 살짝 여백 */
+    }
+    .pw-toggle input[type="checkbox"] {
+      margin: 0;          /* 기본 마진 제거 */
+    }
+
   </style>
   <script src="/utils/categoryLists.js"></script>
 </head>

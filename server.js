@@ -331,6 +331,29 @@ app.get('/api/reviews/:id', async (req, res) => {
   }
 });
 
+// server.js (/login)
+app.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    if (!email || !password) return res.status(400).json({ message: '필수 항목 누락' });
+
+    const { data: user, error } = await supabase
+      .from('users').select('id, email, nickname, password_hash').eq('email', email).maybeSingle();
+    if (error) throw error;
+    if (!user) return res.status(401).json({ message: '이메일 또는 비밀번호가 틀립니다.' });
+
+    const ok = await bcrypt.compare(password, user.password_hash);
+    if (!ok) return res.status(401).json({ message: '이메일 또는 비밀번호가 틀립니다.' });
+
+    // ✅ 이 줄을 주석 해제해야 로그인 상태 유지됨!
+    setAuthCookie(res, { id: user.id, email: user.email, nickname: user.nickname });
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: '로그인 실패', detail: String(err.message || err) });
+  }
+});
+
 
 app.post('/api/reviews', requireLogin, async (req, res) => {
   const payload = req.body || {};

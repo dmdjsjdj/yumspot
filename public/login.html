@@ -76,6 +76,23 @@
     .pw-row input[type="password"],
     .pw-row input[type="text"] { flex:1; }   /* 가로 꽉 */
     .pw-toggle { display:flex; align-items:center; gap:6px; font-size:14px; color:#333; }
+
+        /* 입력–토글 레이아웃 */
+    .pw-row { margin-top: 8px; }
+
+    /* 체크박스와 라벨을 한 줄로 */
+    .pw-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;           /* 체크박스와 글자 간격 */
+      font-size: 14px;
+      color: #333;
+      margin: 6px 0 0 0;  /* 위쪽만 살짝 여백 */
+    }
+    .pw-toggle input[type="checkbox"] {
+      margin: 0;          /* 기본 마진 제거 */
+    }
+
   </style>
   <script src="/utils/categoryLists.js"></script>
 </head>
@@ -105,7 +122,7 @@
       <label class="pw-toggle">
         <input type="checkbox" id="showPwLogin"> 비밀번호 보기
       </label>
-      <button type="submit">로그인</button>
+      <button type="submit" id="loginBtn">로그인</button>
       <p class="helper"><a href="findpassword.html">비밀번호 찾기</a></p>
     </form>
     <p class="error" id="err"></p>
@@ -163,6 +180,23 @@
   </script>
 
   <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    bindPwCheckbox('showPwLogin', ['loginPassword']);
+  });
+  </script>
+
+  <script>
+  // 공통 유틸
+  function bindPwCheckbox(checkboxId, inputIds){
+    const cb = document.getElementById(checkboxId);
+    if (!cb) return;
+    const inputs = inputIds.map(id => document.getElementById(id)).filter(Boolean);
+    const apply = () => { inputs.forEach(i => i.type = cb.checked ? 'text' : 'password'); };
+    cb.addEventListener('change', apply);
+    apply(); // 초기 상태 적용
+  }
+
+  // 로그인 페이지용 바인딩
   document.addEventListener('DOMContentLoaded', () => {
     bindPwCheckbox('showPwLogin', ['loginPassword']);
   });

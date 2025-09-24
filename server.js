@@ -41,6 +41,7 @@ function setAuthCookie(res, payload) {
 
 // 공개 URL → 파일 경로 추출
 function pathFromPublicUrl(publicUrl) {
+  const REVIEW_BUCKET = 'review-images';
   if (!publicUrl) return null;
   const marker = `/object/public/${REVIEW_BUCKET}/`;
   const idx = publicUrl.indexOf(marker);
@@ -111,30 +112,6 @@ app.post('/signup', async (req, res) => {
     res.status(500).json({ message: '회원가입 실패', detail: String(err.message || err) });
   }
 });
-
-app.post('/login', async (req, res) => {
-  try {
-    const { email, password } = req.body || {};
-    if (!email || !password) return res.status(400).json({ message: '필수 항목 누락' });
-
-    const { data: user, error } = await supabase
-      .from('users').select('id, email, nickname, password_hash')
-      .eq('email', email).maybeSingle();
-
-    if (error) throw error;
-    if (!user) return res.status(401).json({ message: '이메일 또는 비밀번호가 틀립니다.' });
-
-    const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) return res.status(401).json({ message: '이메일 또는 비밀번호가 틀립니다.' });
-
-    setAuthCookie(res, { id: user.id, email: user.email, nickname: user.nickname });
-
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(500).json({ message: '로그인 실패', detail: String(err.message || err) });
-  }
-});
-
 
 // 닉네임 + 이메일로 직접 비밀번호 변경 (비로그인 상태에서도 가능)
 app.post('/password/reset-direct', async (req, res) => {
@@ -278,7 +255,7 @@ app.get('/api/reviews', async (req, res) => {
   const { region, foodcategory, sub, sort = 'latest' } = req.query;
 
   let q = supabase.from('reviews')
-    .select('id, title, rating, foodcategory, subcategory, regionnames, subregion, restaurant_name, created_at');
+    .select('id, title, rating, foodcategory, subcategory, regionnames, subregion, restaurant_name, created_at, place_id, lat, lng,');
 
   // 정렬
   if (sort === 'latest') {
@@ -313,8 +290,8 @@ app.get('/api/reviews/:id', async (req, res) => {
         rating, content, image_url,
         foodcategory, subcategory,
         regionnames, subregion,
-        lat, lng,
         created_at, updated_at
+        place_id, lat, lng,
       `)
       .eq('id', req.params.id)
       .maybeSingle();
@@ -371,7 +348,10 @@ app.post('/api/reviews', requireLogin, async (req, res) => {
     foodcategory: payload.foodcategory,
     regionnames: payload.regionnames,
     subcategory: payload.subcategory || null,
-    subregion: payload.subregion || null
+    subregion: payload.subregion || null,
+    place_id: payload.place_id || null,
+    lat: payload.lat ?? null,
+    lng: payload.lng ?? null,
   };
   const { data, error } = await supabase.from('reviews').insert([row]).select('id').single();
   if (error) return res.status(500).json({ message: '등록 실패' });
@@ -402,6 +382,7 @@ app.put('/api/reviews/:id', requireLogin, async (req, res) => {
     regionnames: payload.regionnames,
     subcategory: payload.subcategory || null,
     subregion: payload.subregion || null,
+    place_id: payload.place_id || null,
     lat: payload.lat ?? null,
     lng: payload.lng ?? null,
   };

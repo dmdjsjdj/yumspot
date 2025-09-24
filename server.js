@@ -197,52 +197,47 @@ app.put('/api/me', requireLogin, async (req, res) => {
 });
 
 // 내가 작성한 리뷰 목록
-// GET /api/bookmarks/mine?sort=latest|oldest|ratingDesc|ratingAsc
-app.get('/api/bookmarks/mine', requireLogin, async (req, res) => {
+// GET /api/reviews/mine?sort=latest|oldest|ratingDesc|ratingAsc|bookmark
+app.get('/api/reviews/mine', requireLogin, async (req, res) => {
   try {
-    const sort = (req.query.sort || 'latest').toLowerCase();
+    const rawSort = (req.query.sort || 'latest').toLowerCase();
+    // 클라이언트 옵션 호환 (ratingDesc/ratingAsc 등)
+    const sort =
+      rawSort === 'ratingdesc' ? 'ratingdesc' :
+      rawSort === 'ratingasc'  ? 'ratingasc'  :
+      rawSort === 'oldest'     ? 'oldest'     :
+      rawSort === 'bookmark'   ? 'bookmark'   :
+      'latest';
 
-    // 1) 내 북마크 목록
-    const { data: rows, error: e1 } = await supabase
-      .from('bookmarks')
-      .select('review_id, created_at')
-      .eq('user_id', req.user.id);
-
-    if (e1) {
-      console.error('[bookmarks] stage1 error:', e1);
-      return res.status(500).json({ stage: 1, message: '조회 실패', detail: String(e1.message || e1) });
-    }
-
-    const ids = (rows || []).map(r => r.review_id).filter(Boolean);
-    if (ids.length === 0) return res.json([]);
-
-    // 2) 리뷰들 조회
-    const { data: reviews, error: e2 } = await supabase
+    // 1) 내 리뷰 목록 읽기
+    const { data, error } = await supabase
       .from('reviews')
       .select('id, title, rating, restaurant_name, image_url, created_at')
-      .in('id', ids);
+      .eq('user_id', req.user.id);
 
-    if (e2) {
-      console.error('[bookmarks] stage2 error:', e2);
-      return res.status(500).json({ stage: 2, message: '조회 실패', detail: String(e2.message || e2) });
+    if (error) {
+      console.error('[my-reviews] stage1 supabase error:', error);
+      return res.status(500).json({ stage: 1, message: '조회 실패', detail: String(error.message || error) });
     }
 
-    // 3) 정렬
-    const list = (reviews || []).slice();
+    const list = Array.isArray(data) ? data.slice() : [];
+
+    // 2) 정렬
     if (sort === 'oldest') {
-      list.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+      list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     } else if (sort === 'ratingdesc') {
-      list.sort((a,b) => (b.rating||0) - (a.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
+      list.sort((a, b) => (b.rating || 0) - (a.rating || 0) || (new Date(b.created_at) - new Date(a.created_at)));
     } else if (sort === 'ratingasc') {
-      list.sort((a,b) => (a.rating||0) - (b.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
-    } else { // latest
-      list.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+      list.sort((a, b) => (a.rating || 0) - (b.rating || 0) || (new Date(b.created_at) - new Date(a.created_at)));
+    } else {
+      // latest(기본)
+      list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }
 
-    res.json(list);
+    return res.json(list);
   } catch (e) {
-    console.error('[bookmarks] fatal:', e);
-    res.status(500).json({ stage: 0, message: '조회 실패', detail: String(e.message || e) });
+    console.error('[my-reviews] fatal:', e);
+    return res.status(500).json({ stage: 0, message: '조회 실패', detail: String(e.message || e) });
   }
 });
 

@@ -323,22 +323,28 @@
       if (!file) return null;
       if (!window.sb) { alert('이미지 업로드 클라이언트 초기화 실패'); return null; }
 
-      const userId = await getUserId();
-      const uid = userId ? String(userId) : 'anon';
-
+      // 용량 제한
       if (file.size > 5 * 1024 * 1024) throw new Error('이미지 용량은 5MB 이하만 가능합니다.');
 
+      // 고유 파일명
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-      const filePath = `user-${uid}-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const filePath = `user-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-      const { error } = await window.sb
+      const { data, error } = await window.sb
         .storage.from('review-images')
-        .upload(filePath, file, { cacheControl:'3600', upsert:false });
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type || 'image/jpeg',
+        });
 
-      if (error) { console.error(error); throw new Error('이미지 업로드 실패'); }
+      if (error) {
+        console.error('Upload error:', error);
+        throw new Error(error.message || '이미지 업로드 실패');
+      }
 
       const { data: pub } = window.sb.storage.from('review-images').getPublicUrl(filePath);
-      return pub.publicUrl;
+      return pub?.publicUrl || null;
     }
 
     document.getElementById('reviewForm').addEventListener('submit', async (e)=>{

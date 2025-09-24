@@ -129,32 +129,74 @@
   </div>
 
   <script>
-  document.getElementById('signupForm')?.addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const email = document.getElementById('email').value.trim();
-    const nickname = document.getElementById('nickname').value.trim();
-    const password = document.getElementById('password').value;
+    // 1) 체크박스로 비밀번호 보기/숨기기
+    function bindPwCheckbox(checkboxId, inputIds){
+      const cb = document.getElementById(checkboxId);
+      if (!cb) return;
+      const inputs = inputIds
+        .map(id => document.getElementById(id))
+        .filter(Boolean);
 
-    try{
-      const res = await fetch('/signup', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ email, nickname, password })
-      });
-      const data = await res.json().catch(()=> ({}));
-      if(!res.ok){ throw new Error(data.message || '회원가입 실패'); }
-      // 가입 후 자동 로그인 쿠키가 세팅됨
-      location.href = '/';
-    }catch(err){
-      alert(err.message || '오류가 발생했습니다.');
+      const apply = () => inputs.forEach(i => { i.type = cb.checked ? 'text' : 'password'; });
+      cb.addEventListener('change', apply);
+      apply(); // 초기 상태 적용
     }
-  });
-  </script>
 
-  <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    bindPwCheckbox('showPwSignup', ['password','passwordConfirm']);
-  });
+    // 2) 에러 표시 유틸
+    function showErr(msg){
+      const el = document.getElementById('err');
+      if (el) { el.textContent = msg; el.style.display = 'block'; }
+    }
+
+    // 3) 초기화: 비밀번호 보기 체크박스 연결
+    document.addEventListener('DOMContentLoaded', () => {
+      bindPwCheckbox('showPwSignup', ['password','passwordConfirm']);
+    });
+
+    // 4) 제출 처리 + 클라이언트 검증
+    document.getElementById('signupForm')?.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      document.getElementById('err').textContent = '';
+
+      const email = document.getElementById('email').value.trim();
+      const nickname = document.getElementById('nickname').value.trim();
+      const password = document.getElementById('password').value;
+      const passwordConfirm = document.getElementById('passwordConfirm').value;
+
+      // 간단한 클라 검증 (서버도 검증함)
+      const pwRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d!@#$%^&*]{8,}$/;
+      if (!pwRegex.test(password)) {
+        return showErr('비밀번호는 최소 8자, 영문+숫자를 포함해야 합니다.');
+      }
+      if (password !== passwordConfirm) {
+        return showErr('비밀번호와 비밀번호 확인이 일치하지 않습니다.');
+      }
+      if (!nickname || nickname.length < 2 || nickname.length > 16) {
+        return showErr('닉네임은 2~16자여야 합니다.');
+      }
+
+      // 중복 제출 방지
+      const btn = document.querySelector('#signupForm button[type="submit"]');
+      btn.disabled = true;
+
+      try{
+        const res = await fetch('/signup', {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ email, nickname, password })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || '회원가입 실패');
+
+        // 가입 성공
+        location.href = '/';
+      }catch(err){
+        showErr(err.message || '오류가 발생했습니다.');
+      }finally{
+        btn.disabled = false;
+      }
+    });
   </script>
 
 </body>

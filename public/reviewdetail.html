@@ -146,23 +146,60 @@
 
     function renderMap(review){
       const $map = document.getElementById('map');
+
+      // 공통 드로잉
       function draw(lat, lng){
         const center = new kakao.maps.LatLng(lat, lng);
         const map = new kakao.maps.Map($map, { center, level: 3 });
         new kakao.maps.Marker({ position: center, map });
       }
+
+      // 0) 좌표가 이미 저장돼 있으면 바로
       if (review.lat != null && review.lng != null) {
-        draw(Number(review.lat), Number(review.lng)); return;
+        draw(Number(review.lat), Number(review.lng));
+        return;
       }
-      const ps = new kakao.maps.services.Places();
-      const q = review.restaurant_name ? (review.address ? `${review.restaurant_name} ${review.address}` : review.restaurant_name) : review.address;
-      if(!q){ $map.innerHTML = '<p style="color:#555">지도 정보를 표시할 수 없습니다.</p>'; return; }
-      ps.keywordSearch(q, (data, status)=>{
-        if(status !== kakao.maps.services.Status.OK || !data?.length){
-          $map.innerHTML = '<p style="color:#555">지도 정보를 표시할 수 없습니다.</p>'; return;
-        }
-        draw(Number(data[0].y), Number(data[0].x));
+
+      const places = new kakao.maps.services.Places();
+      const geocoder = new kakao.maps.services.Geocoder();
+
+      // 1) 주소가 있으면 먼저 주소 지오코딩 시도 (성공률 가장 높음)
+      const tryAddress = () => new Promise((resolve) => {
+        if(!review.address) return resolve(null);
+        geocoder.addressSearch(review.address, (result, status) => {
+          if (status === kakao.maps.services.Status.OK && result?.length) {
+            const { y, x } = result[0]; // y=lat, x=lng
+            resolve({ lat: Number(y), lng: Number(x) });
+          } else resolve(null);
+        });
       });
+
+      // 2) 키워드(식당명 + 주소 일부) 검색
+      const tryKeyword = () => new Promise((resolve) => {
+        const q = review.restaurant_name
+          ? (review.address ? `${review.restaurant_name} ${review.address}` : review.restaurant_name)
+          : review.address;
+
+        if(!q) return resolve(null);
+
+        places.keywordSearch(q, (data, status) => {
+          if (status === kakao.maps.services.Status.OK && data?.length) {
+            resolve({ lat: Number(data[0].y), lng: Number(data[0].x) });
+          } else resolve(null);
+        });
+      });
+
+      // 순차 시도
+      (async ()=>{
+        let coord = await tryAddress();
+        if(!coord) coord = await tryKeyword();
+
+        if(coord) {
+          draw(coord.lat, coord.lng);
+        } else {
+          $map.innerHTML = '<p style="color:#555">지도 정보를 표시할 수 없습니다.</p>';
+        }
+      })();
     }
 
     function copyAddr(){

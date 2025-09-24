@@ -55,6 +55,16 @@
   </div>
 
   <script>
+    // 날짜 포맷 헬퍼 (YYYY.MM.DD)
+    function fmtDate(s){
+      if(!s) return '-';
+      const d = new Date(s);
+      if (isNaN(d.getTime())) return '-';
+      return d.toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' });
+    }
+  </script>
+
+  <script>
     function debounce(fn, ms = 250) {
       let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
     }

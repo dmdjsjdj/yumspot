@@ -197,7 +197,7 @@
 
       // 탭 활성화 + 데이터 로드
       function setActive(mode){
-        window.CURRENT_TAB = mode; // 전역 상태 갱신
+         CURRENT_TAB = mode;
         tabs.forEach(btn => btn.classList.toggle('active', btn.dataset.mode === mode));
         loadCurrent();
       }

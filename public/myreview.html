@@ -50,14 +50,16 @@
     <div class="top-actions">
       <h2>내 리뷰</h2>
       <div style="display:flex; gap:8px; align-items:center;">
+        <div id="tabs" style="display:flex; gap:6px; margin-right:8px;">
+          <button class="btn secondary" data-mode="mine">내 리뷰</button>
+          <button class="btn secondary" data-mode="bookmarks">북마크</button>
+        </div>
+
         <select id="sortSelect" class="btn" style="background:#fff; color:#333;">
           <option value="latest">날짜순(최신)</option>
           <option value="oldest">날짜순(오래된)</option>
           <option value="ratingDesc">별점순(높은↓)</option>
           <option value="ratingAsc">별점순(낮은↑)</option>
-          <!-- 북마크 탭에서만 의미있는 정렬 -->
-          <option value="addedLatest">북마크 추가순(최신)</option>
-          <option value="addedOldest">북마크 추가순(오래된)</option>
         </select>
         <a class="btn" href="plusreviewpage.html">+ 리뷰 작성</a>
       </div>
@@ -68,46 +70,19 @@
   </div>
 
   <script>
-    let MY_LIST = [];
-    let ACTIVE_TAB = 'mine'; // 기본: 내가 쓴 리뷰
-
-    function fmtDate(s){
-      if(!s) return '-';
-      const d = new Date(s);
-      if (isNaN(d.getTime())) return '-';
-      return d.toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' });
-    }
-
-    async function requireAuth(){
-      const r = await fetch('/check-auth', { credentials:'include' });
-      const d = await r.json();
-      if(!d.loggedIn){
-        alert('로그인 후 이용 가능합니다.');
-        location.href='login.html';
-        return false;
-      }
-      return true;
-    }
+    let MODE = 'mine';         // 'mine' | 'bookmarks'
+    let MY_LIST = [];          // 현재 표시 중인 리스트(정렬/렌더용)
 
     function applySort(list, how){
       const arr = list.slice();
-      const getDate = x => new Date(x.created_at||0);              // 리뷰 작성일
-      const getAdded = x => new Date(x.bookmark_created_at||0);     // 북마크 추가일
-
-      switch((how||'latest').toLowerCase()){
-        case 'oldest':
-          arr.sort((a,b)=> getDate(a) - getDate(b)); break;
-        case 'ratingdesc':
-          arr.sort((a,b)=> (b.rating||0) - (a.rating||0) || getDate(b)-getDate(a)); break;
-        case 'ratingasc':
-          arr.sort((a,b)=> (a.rating||0) - (b.rating||0) || getDate(b)-getDate(a)); break;
-        case 'addedlatest': // 북마크 탭용
-          arr.sort((a,b)=> getAdded(b) - getAdded(a)); break;
-        case 'addedoldest': // 북마크 탭용
-          arr.sort((a,b)=> getAdded(a) - getAdded(b)); break;
-        case 'latest':
-        default:
-          arr.sort((a,b)=> getDate(b) - getDate(a)); break;
+      if(how === 'latest'){
+        arr.sort((a,b)=> new Date(b.created_at||0) - new Date(a.created_at||0));
+      }else if(how === 'oldest'){
+        arr.sort((a,b)=> new Date(a.created_at||0) - new Date(b.created_at||0));
+      }else if(how === 'ratingDesc'){
+        arr.sort((a,b)=> (b.rating||0) - (a.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
+      }else if(how === 'ratingAsc'){
+        arr.sort((a,b)=> (a.rating||0) - (b.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
       }
       return arr;
     }
@@ -116,21 +91,20 @@
       const grid = document.getElementById('grid');
       const state = document.getElementById('state');
       grid.innerHTML = '';
-      if(state) state.textContent = '';
+      state.textContent = '';
 
       if(!list || list.length === 0){
-        if(state) state.textContent = (ACTIVE_TAB === 'mine')
-          ? '아직 내 리뷰가 없습니다. “+ 리뷰 작성”으로 첫 리뷰를 남겨보세요!'
-          : '아직 북마크한 리뷰가 없습니다.';
+        state.textContent = MODE === 'mine'
+          ? '아직 내 리뷰가 없습니다. 상단의 “+ 리뷰 작성” 버튼으로 첫 리뷰를 남겨보세요!'
+          : '북마크한 리뷰가 없습니다. 상세 페이지에서 ★ 버튼으로 북마크해보세요!';
         return;
       }
 
       list.forEach(review => {
         const dateText = review.created_at
-          ? new Date(review.created_at).toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' })
+          ? new Date(review.created_at).toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'})
           : '-';
-        const stars = '★'.repeat(review.rating)+'<span class="empty">'+'☆'.repeat(5-review.rating)+'</span>';
-
+        const stars = '★'.repeat(review.rating||0) + '<span class="empty">' + '☆'.repeat(5-(review.rating||0)) + '</span>';
         const el = document.createElement('div');
         el.className = 'card';
         el.innerHTML = `
@@ -138,52 +112,58 @@
           <p class="rating">${stars}</p>
           <p class="meta">작성일: ${dateText}</p>
           <p>${review.restaurant_name ?? ''}</p>
-          <div class="cta">
-            <button class="btn secondary btn-edit">수정</button>
-            <button class="btn danger btn-del">삭제</button>
+          <div class="cta" style="margin-top:10px; display:flex; gap:8px;">
+            ${
+              MODE === 'mine'
+                ? `<button class="btn secondary btn-edit">수정</button>
+                  <button class="btn danger btn-del">삭제</button>`
+                : ``
+            }
           </div>
         `;
-
-        el.addEventListener('click', function(){
-          location.href = 'reviewdetail.html?id=' + review.id;
-        });
-
-        el.querySelector('.btn-edit').addEventListener('click', function(e){
-          e.stopPropagation();
-          location.href = 'editreview.html?id=' + review.id;
-        });
-
-        el.querySelector('.btn-del').addEventListener('click', async function(e){
-          e.stopPropagation();
-          if(!confirm('이 리뷰를 삭제하시겠습니까?')) return;
-          try{
-            const r = await fetch('/api/reviews/' + review.id, { method:'DELETE', credentials:'include' });
-            if(!r.ok) throw new Error('삭제 실패');
-            MY_LIST = MY_LIST.filter(function(x){ return x.id !== review.id; });
-            render(applySort(MY_LIST, document.getElementById('sortSelect').value));
-          }catch(err){
-            alert(err.message || '삭제에 실패했습니다.');
-          }
-        });
-
+        el.addEventListener('click', ()=> location.href = 'reviewdetail.html?id=' + review.id);
+        if (MODE === 'mine') {
+          el.querySelector('.btn-edit').addEventListener('click', (e)=>{
+            e.stopPropagation();
+            location.href = 'editreview.html?id=' + review.id;
+          });
+          el.querySelector('.btn-del').addEventListener('click', async (e)=>{
+            e.stopPropagation();
+            if(!confirm('이 리뷰를 삭제하시겠습니까?')) return;
+            try{
+              const r = await fetch('/api/reviews/' + review.id, { method:'DELETE', credentials:'include' });
+              if(!r.ok) throw new Error('삭제 실패');
+              MY_LIST = MY_LIST.filter(x => x.id !== review.id);
+              render(applySort(MY_LIST, document.getElementById('sortSelect').value));
+            }catch(err){
+              alert(err.message || '삭제에 실패했습니다.');
+            }
+          });
+        }
         grid.appendChild(el);
       });
     }
 
     async function loadMine(){
-      if(!(await requireAuth())) return;
+      const r = await fetch('/api/reviews/mine?sort=' + encodeURIComponent(document.getElementById('sortSelect').value), { credentials:'include' });
+      if (!r.ok) throw new Error('내 리뷰 불러오기 실패');
+      const list = await r.json();
+      MY_LIST = list || [];
+    }
+
+    async function loadBookmarks(){
+      const r = await fetch('/api/bookmarks/mine?sort=' + encodeURIComponent(document.getElementById('sortSelect').value), { credentials:'include' });
+      if (!r.ok) throw new Error('북마크 불러오기 실패');
+      const list = await r.json();
+      MY_LIST = list || [];
+    }
+
+    async function loadCurrent(){
       const state = document.getElementById('state');
       state.textContent = '';
-
       try{
-        const res = await fetch('/api/reviews/mine', { credentials:'include' });
-        if(!res.ok) throw new Error('내 리뷰 불러오기 실패');
-
-        const list = await res.json();
-        MY_LIST = (list || []).map(function(x){
-          return { ...x, created_at: x.created_at || x.createdAt || x.date || '' };
-        });
-
+        if (MODE === 'mine') await loadMine();
+        else await loadBookmarks();
         const how = document.getElementById('sortSelect').value;
         render(applySort(MY_LIST, how));
       }catch(e){
@@ -192,11 +172,25 @@
       }
     }
 
-    document.addEventListener('DOMContentLoaded', function(){
-      document.getElementById('sortSelect').addEventListener('change', function(e){
-        render(applySort(MY_LIST, e.target.value));
+    document.addEventListener('DOMContentLoaded', ()=>{
+      // 정렬 변경
+      document.getElementById('sortSelect').addEventListener('change', ()=>{
+        render(applySort(MY_LIST, document.getElementById('sortSelect').value));
       });
-      loadMine();
+
+      // 탭 클릭
+      document.querySelectorAll('#tabs [data-mode]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          MODE = btn.dataset.mode;                // 'mine' or 'bookmarks'
+          document.querySelectorAll('#tabs .btn').forEach(b=> b.classList.remove('active'));
+          btn.classList.add('active');
+          loadCurrent();
+        });
+      });
+
+      // 기본 탭 선택
+      document.querySelector('#tabs [data-mode="mine"]').classList.add('active');
+      loadCurrent();
     });
   </script>
 

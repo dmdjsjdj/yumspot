@@ -288,7 +288,7 @@ app.get('/api/reviews', async (req, res) => {
   res.json(data);
 });
 
-
+//---북마크
 app.get('/api/bookmarks', requireLogin, async (req, res) => {
   try {
     const sort = (req.query.sort || 'latest').toLowerCase();
@@ -422,6 +422,51 @@ app.get('/api/reviews/:id', async (req, res) => {
     return res.json(payload);
   } catch (e) {
     return res.status(500).json({ message: '조회 실패', detail: String(e.message || e) });
+  }
+});
+
+// GET /api/bookmarks/mine?sort=latest|oldest|ratingDesc|ratingAsc
+app.get('/api/bookmarks/mine', requireLogin, async (req, res) => {
+  try {
+    const sort = (req.query.sort || 'latest').toLowerCase();
+
+    // 1) 내 북마크 행 가져오기
+    const { data: rows, error: e1 } = await supabase
+      .from('bookmarks')
+      .select('review_id, created_at')
+      .eq('user_id', req.user.id);
+
+    if (e1) throw e1;
+
+    if (!rows || rows.length === 0) {
+      return res.json([]); // 빈 배열
+    }
+
+    const ids = rows.map(r => r.review_id);
+
+    // 2) 해당 리뷰들 가져오기 (카드에서 쓰는 필드만)
+    const { data: reviews, error: e2 } = await supabase
+      .from('reviews')
+      .select('id, title, rating, restaurant_name, image_url, created_at')
+      .in('id', ids);
+
+    if (e2) throw e2;
+
+    // 3) 정렬 (프런트와 일관성 유지: 기본은 created_at desc)
+    const list = (reviews || []).slice();
+    if (sort === 'oldest') {
+      list.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+    } else if (sort === 'ratingdesc') {
+      list.sort((a,b) => (b.rating||0) - (a.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
+    } else if (sort === 'ratingasc') {
+      list.sort((a,b) => (a.rating||0) - (b.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
+    } else { // latest
+      list.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    }
+
+    res.json(list);
+  } catch (e) {
+    res.status(500).json({ message: '조회 실패', detail: String(e.message || e) });
   }
 });
 

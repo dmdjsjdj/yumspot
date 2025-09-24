@@ -197,46 +197,52 @@ app.put('/api/me', requireLogin, async (req, res) => {
 });
 
 // 내가 작성한 리뷰 목록
-// GET /api/reviews/mine?sort=latest|stars
-app.get('/api/reviews/mine', requireLogin, async (req, res) => {
+// GET /api/bookmarks/mine?sort=latest|oldest|ratingDesc|ratingAsc
+app.get('/api/bookmarks/mine', requireLogin, async (req, res) => {
   try {
     const sort = (req.query.sort || 'latest').toLowerCase();
 
-    let query = supabase
-      .from('reviews')
-      .select('id, title, rating, restaurant_name, image_url, created_at')
+    // 1) 내 북마크 목록
+    const { data: rows, error: e1 } = await supabase
+      .from('bookmarks')
+      .select('review_id, created_at')
       .eq('user_id', req.user.id);
 
-    // 정렬 옵션 매핑
-    switch (sort) {
-      case 'oldest':
-        query = query.order('created_at', { ascending: true });
-        break;
-      case 'ratinghigh':     // 별점 높은→낮은
-      case 'stars':          // (호환)
-        query = query
-          .order('rating', { ascending: false })
-          .order('created_at', { ascending: false });
-        break;
-      case 'ratinglow':      // 별점 낮은→높은
-        query = query
-          .order('rating', { ascending: true })
-          .order('created_at', { ascending: false });
-        break;
-      // case 'bookmark': // 북마크 구현 시 여기서 조인/카운트 정렬
-      //   break;
-      case 'latest':
-      default:
-        query = query.order('created_at', { ascending: false });
-        break;
+    if (e1) {
+      console.error('[bookmarks] stage1 error:', e1);
+      return res.status(500).json({ stage: 1, message: '조회 실패', detail: String(e1.message || e1) });
     }
 
-    const { data, error } = await query;
-    if (error) return res.status(500).json({ message: '조회 실패' });
+    const ids = (rows || []).map(r => r.review_id).filter(Boolean);
+    if (ids.length === 0) return res.json([]);
 
-    res.json(Array.isArray(data) ? data : []);
+    // 2) 리뷰들 조회
+    const { data: reviews, error: e2 } = await supabase
+      .from('reviews')
+      .select('id, title, rating, restaurant_name, image_url, created_at')
+      .in('id', ids);
+
+    if (e2) {
+      console.error('[bookmarks] stage2 error:', e2);
+      return res.status(500).json({ stage: 2, message: '조회 실패', detail: String(e2.message || e2) });
+    }
+
+    // 3) 정렬
+    const list = (reviews || []).slice();
+    if (sort === 'oldest') {
+      list.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+    } else if (sort === 'ratingdesc') {
+      list.sort((a,b) => (b.rating||0) - (a.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
+    } else if (sort === 'ratingasc') {
+      list.sort((a,b) => (a.rating||0) - (b.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
+    } else { // latest
+      list.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    }
+
+    res.json(list);
   } catch (e) {
-    res.status(500).json({ message: '조회 실패', detail: String(e.message || e) });
+    console.error('[bookmarks] fatal:', e);
+    res.status(500).json({ stage: 0, message: '조회 실패', detail: String(e.message || e) });
   }
 });
 

@@ -393,15 +393,6 @@ app.put('/api/reviews/:id', requireLogin, async (req, res) => {
   const { error } = await supabase.from('reviews').update(update).eq('id', id);
   if (error) return res.status(500).json({ message: '수정 실패' });
 
-  // 이미지가 교체되었으면 이전 파일 삭제(서버에서 수행)
-  if (prevUrl && nextUrl && prevUrl !== nextUrl) {
-    deleteImageByPublicUrl(prevUrl).catch(console.error);
-  }
-  // (선택) 새 URL이 null인데 이전이 존재 → 사용자 요청으로 삭제한 상황이라면 이전 것 삭제
-  if (!nextUrl && prevUrl) {
-    deleteImageByPublicUrl(prevUrl).catch(console.error);
-  }
-
   res.json({ ok: true });
 });
 

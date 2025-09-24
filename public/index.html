@@ -48,39 +48,56 @@
 
 
     <script>
-    async function showRecentReviews() {
-        const row = document.getElementById("reviewRow");
-        row.innerHTML = '';
-        try {
-            const res = await fetch('/api/reviews/recent');
-            if (!res.ok) throw new Error("리뷰를 불러올 수 없음");
-            const reviews = await res.json();
-            reviews.forEach(review=>{
-                const card = document.createElement('div');
-                card.className = 'review-card';
-                const stars = '★'.repeat(review.rating) + '<span class="empty">' + '☆'.repeat(5-review.rating) + '</span>';
-                card.innerHTML = `
-                    <h3>${review.title}</h3>
-                    <p class="rating">${stars}</p>
-                    <p>카테고리: ${review.foodcategory ?? '-'}</p>
-                    <p>${review.restaurant_name ?? ''}</p>
-                    <p class="meta">작성일: ${fmtDate(rv.created_at)}</p>
-                `;
-                card.addEventListener('click',()=>location.href=`reviewdetail.html?id=${review.id}`);
-                row.appendChild(card);
-            });
-        } catch(e) {
-            row.innerHTML = '<p>리뷰를 불러오지 못했습니다.</p>';
-            console.error(e);
+        // 날짜 포맷 헬퍼
+        function fmtDate(iso) {
+            if (!iso) return '-';
+            try {
+            return new Date(iso).toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' });
+            } catch { return '-'; }
         }
-    }
-    window.onload = showRecentReviews;
+
+        async function showRecentReviews() {
+            const row = document.getElementById("reviewRow");
+            row.innerHTML = '';
+            try {
+                const res = await fetch('/api/reviews/recent',  { credentials: 'include' });
+                if (!res.ok) throw new Error("리뷰를 불러올 수 없음");
+
+                const reviews = await res.json();
+                if (!reviews || reviews.length === 0) {
+                    row.innerHTML = '<p>아직 리뷰가 없습니다.</p>';
+                    return;
+                }
+
+                reviews.forEach(review=>{
+                    const card = document.createElement('div');
+                    card.className = 'review-card';
+
+                    const rating = Number(review.rating) || 0;
+                    const stars = '★'.repeat(review.rating) + '<span class="empty">' + '☆'.repeat(5-review.rating) + '</span>';
+                    
+                    card.innerHTML = `
+                        <h3>${review.title}</h3>
+                        <p class="rating">${stars}</p>
+                        <p>카테고리: ${review.foodcategory ?? '-'}</p>
+                        <p>${review.restaurant_name ?? ''}</p>
+                        <p class="meta">작성일: ${fmtDate(review.created_at)}</p>
+                    `;
+                    card.addEventListener('click',()=>location.href=`reviewdetail.html?id=${review.id}`);
+                    row.appendChild(card);
+                });
+            } catch(e) {
+                row.innerHTML = '<p>리뷰를 불러오지 못했습니다.</p>';
+                console.error(e);
+            }
+        }
+        window.onload = showRecentReviews;
     </script>
     
     <script>
     // 공통: 로그인 상태 반영
     (function initAuth(){
-    fetch('/check-auth', { credentials: 'include' })   <!-- 여기! -->
+    fetch('/check-auth', { credentials: 'include' }) 
         .then(r=>r.json())
         .then(data=>{
         if (data.loggedIn) {

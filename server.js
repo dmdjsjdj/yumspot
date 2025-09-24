@@ -197,50 +197,87 @@ app.put('/api/me', requireLogin, async (req, res) => {
 });
 
 // 내가 작성한 리뷰 목록
-// GET /api/reviews/mine?sort=latest|oldest|ratingDesc|ratingAsc|bookmark
+// GET /api/reviews/mine?sort=latest|oldest|ratingDesc|ratingAsc
 app.get('/api/reviews/mine', requireLogin, async (req, res) => {
   try {
-    const rawSort = (req.query.sort || 'latest').toLowerCase();
-    // 클라이언트 옵션 호환 (ratingDesc/ratingAsc 등)
+    const raw = String(req.query.sort || 'latest').toLowerCase();
     const sort =
-      rawSort === 'ratingdesc' ? 'ratingdesc' :
-      rawSort === 'ratingasc'  ? 'ratingasc'  :
-      rawSort === 'oldest'     ? 'oldest'     :
-      rawSort === 'bookmark'   ? 'bookmark'   :
-      'latest';
+      raw === 'oldest'     ? 'oldest'     :
+      raw === 'ratingdesc' ? 'ratingdesc' :
+      raw === 'ratingasc'  ? 'ratingasc'  : 'latest';
 
-    // 1) 내 리뷰 목록 읽기
     const { data, error } = await supabase
       .from('reviews')
-      .select('id, title, rating, restaurant_name, image_url, created_at')
+      .select('id, title, rating, restaurant_name, created_at')  // 필요한 것만
       .eq('user_id', req.user.id);
 
-    if (error) {
-      console.error('[my-reviews] stage1 supabase error:', error);
-      return res.status(500).json({ stage: 1, message: '조회 실패', detail: String(error.message || error) });
-    }
+    if (error) return res.status(500).json({ message: '조회 실패', detail: String(error.message || error) });
 
     const list = Array.isArray(data) ? data.slice() : [];
 
-    // 2) 정렬
+    // 정렬(안전하게 프런트에서 하지 않고 서버에서 결정)
     if (sort === 'oldest') {
-      list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      list.sort((a,b)=> new Date(a.created_at) - new Date(b.created_at));
     } else if (sort === 'ratingdesc') {
-      list.sort((a, b) => (b.rating || 0) - (a.rating || 0) || (new Date(b.created_at) - new Date(a.created_at)));
+      list.sort((a,b)=> (b.rating||0)-(a.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
     } else if (sort === 'ratingasc') {
-      list.sort((a, b) => (a.rating || 0) - (b.rating || 0) || (new Date(b.created_at) - new Date(a.created_at)));
+      list.sort((a,b)=> (a.rating||0)-(b.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
     } else {
-      // latest(기본)
-      list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      list.sort((a,b)=> new Date(b.created_at) - new Date(a.created_at)); // latest
     }
 
-    return res.json(list);
+    res.json(list);
   } catch (e) {
-    console.error('[my-reviews] fatal:', e);
-    return res.status(500).json({ stage: 0, message: '조회 실패', detail: String(e.message || e) });
+    res.status(500).json({ message: '조회 실패', detail: String(e.message || e) });
   }
 });
 
+// GET /api/bookmarks/mine?sort=latest|oldest|ratingDesc|ratingAsc
+app.get('/api/bookmarks/mine', requireLogin, async (req, res) => {
+  try {
+    const raw = String(req.query.sort || 'latest').toLowerCase();
+    const sort =
+      raw === 'oldest'     ? 'oldest'     :
+      raw === 'ratingdesc' ? 'ratingdesc' :
+      raw === 'ratingasc'  ? 'ratingasc'  : 'latest';
+
+    // 1) 내가 북마크한 review_id 목록
+    const { data: bm, error: e1 } = await supabase
+      .from('bookmarks')
+      .select('review_id')
+      .eq('user_id', req.user.id);
+
+    if (e1) return res.status(500).json({ message: '조회 실패', detail: String(e1.message || e1) });
+
+    const ids = (bm || []).map(x => x.review_id).filter(Boolean);
+    if (ids.length === 0) return res.json([]);
+
+    // 2) 해당 리뷰들
+    const { data: reviews, error: e2 } = await supabase
+      .from('reviews')
+      .select('id, title, rating, restaurant_name, created_at')
+      .in('id', ids);
+
+    if (e2) return res.status(500).json({ message: '조회 실패', detail: String(e2.message || e2) });
+
+    const list = Array.isArray(reviews) ? reviews.slice() : [];
+
+    // 3) 정렬
+    if (sort === 'oldest') {
+      list.sort((a,b)=> new Date(a.created_at) - new Date(b.created_at));
+    } else if (sort === 'ratingdesc') {
+      list.sort((a,b)=> (b.rating||0)-(a.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
+    } else if (sort === 'ratingasc') {
+      list.sort((a,b)=> (a.rating||0)-(b.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
+    } else {
+      list.sort((a,b)=> new Date(b.created_at) - new Date(a.created_at)); // latest
+    }
+
+    res.json(list);
+  } catch (e) {
+    res.status(500).json({ message: '조회 실패', detail: String(e.message || e) });
+  }
+});
 
 // --- Reviews ---
 app.get('/api/reviews/recent', async (_req, res) => {

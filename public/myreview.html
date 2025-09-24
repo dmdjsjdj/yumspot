@@ -70,132 +70,150 @@
   </div>
 
   <script>
-    let MODE = 'mine';         // 'mine' | 'bookmarks'
-    let MY_LIST = [];          // 현재 표시 중인 리스트(정렬/렌더용)
+    let CURRENT_TAB = 'mine'; // 'mine' | 'bookmarks'
+    let MY_LIST = [];
 
-    function applySort(list, how){
-      const arr = list.slice();
-      if(how === 'latest'){
-        arr.sort((a,b)=> new Date(b.created_at||0) - new Date(a.created_at||0));
-      }else if(how === 'oldest'){
-        arr.sort((a,b)=> new Date(a.created_at||0) - new Date(b.created_at||0));
-      }else if(how === 'ratingDesc'){
-        arr.sort((a,b)=> (b.rating||0) - (a.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
-      }else if(how === 'ratingAsc'){
-        arr.sort((a,b)=> (a.rating||0) - (b.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
-      }
-      return arr;
+    // 날짜 포맷
+    function fmtDate(s){
+      if(!s) return '-';
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? '-' :
+        d.toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'});
     }
 
+    // 카드 렌더
     function render(list){
       const grid = document.getElementById('grid');
-      const state = document.getElementById('state');
       grid.innerHTML = '';
-      state.textContent = '';
 
       if(!list || list.length === 0){
-        state.textContent = MODE === 'mine'
-          ? '아직 내 리뷰가 없습니다. 상단의 “+ 리뷰 작성” 버튼으로 첫 리뷰를 남겨보세요!'
-          : '북마크한 리뷰가 없습니다. 상세 페이지에서 ★ 버튼으로 북마크해보세요!';
+        grid.innerHTML = `<p>${
+          CURRENT_TAB === 'mine'
+            ? '아직 내 리뷰가 없습니다. 상단의 “+ 리뷰 작성”으로 첫 리뷰를 남겨보세요!'
+            : '북마크한 리뷰가 없습니다. 상세 페이지에서 ★ 버튼으로 북마크해보세요!'
+        }</p>`;
         return;
       }
 
-      list.forEach(review => {
-        const dateText = review.created_at
-          ? new Date(review.created_at).toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'})
-          : '-';
-        const stars = '★'.repeat(review.rating||0) + '<span class="empty">' + '☆'.repeat(5-(review.rating||0)) + '</span>';
-        const el = document.createElement('div');
-        el.className = 'card';
-        el.innerHTML = `
-          <h3>${review.title}</h3>
-          <p class="rating">${stars}</p>
-          <p class="meta">작성일: ${dateText}</p>
-          <p>${review.restaurant_name ?? ''}</p>
-          <div class="cta" style="margin-top:10px; display:flex; gap:8px;">
-            ${
-              MODE === 'mine'
-                ? `<button class="btn secondary btn-edit">수정</button>
-                  <button class="btn danger btn-del">삭제</button>`
-                : ``
-            }
-          </div>
-        `;
-        el.addEventListener('click', ()=> location.href = 'reviewdetail.html?id=' + review.id);
-        if (MODE === 'mine') {
-          el.querySelector('.btn-edit').addEventListener('click', (e)=>{
-            e.stopPropagation();
-            location.href = 'editreview.html?id=' + review.id;
+    list.forEach(review => {
+      const stars = '★'.repeat(Number(review.rating)||0) +
+                    '<span class="empty">' + '☆'.repeat(5-(Number(review.rating)||0)) + '</span>';
+
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.innerHTML = `
+        <h3>${review.title}</h3>
+        <p class="rating">${stars}</p>
+        <p>${review.restaurant_name ?? ''}</p>
+        <p class="meta">작성일: ${
+          review.created_at
+            ? new Date(review.created_at).toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'})
+            : '-'
+        }</p>
+
+        ${
+          CURRENT_TAB === 'mine'
+            ? `<div class="cta" style="margin-top:10px; display:flex; gap:8px;">
+                <button class="btn secondary btn-edit">수정</button>
+                <button class="btn danger btn-del">삭제</button>
+              </div>`
+            : ``
+        }
+      `;
+
+      // 카드 전체 클릭 → 상세로
+      el.addEventListener('click', ()=> {
+        location.href = `reviewdetail.html?id=${review.id}`;
+      });
+
+      // 내 리뷰 탭일 때만: 수정/삭제 핸들러
+      if (CURRENT_TAB === 'mine') {
+        const editBtn = el.querySelector('.btn-edit');
+        const delBtn  = el.querySelector('.btn-del');
+
+        if (editBtn) {
+          editBtn.addEventListener('click', (e)=>{
+            e.stopPropagation(); // 카드 클릭 막기
+            location.href = `editreview.html?id=${review.id}`;
           });
-          el.querySelector('.btn-del').addEventListener('click', async (e)=>{
-            e.stopPropagation();
+        }
+
+        if (delBtn) {
+          delBtn.addEventListener('click', async (e)=>{
+            e.stopPropagation(); // 카드 클릭 막기
             if(!confirm('이 리뷰를 삭제하시겠습니까?')) return;
+
             try{
-              const r = await fetch('/api/reviews/' + review.id, { method:'DELETE', credentials:'include' });
+              const r = await fetch(`/api/reviews/${review.id}`, {
+                method:'DELETE',
+                credentials:'include'
+              });
               if(!r.ok) throw new Error('삭제 실패');
+
+              // 현재 목록에서 제거 후 재렌더
               MY_LIST = MY_LIST.filter(x => x.id !== review.id);
-              render(applySort(MY_LIST, document.getElementById('sortSelect').value));
+              render(MY_LIST);
             }catch(err){
               alert(err.message || '삭제에 실패했습니다.');
             }
           });
         }
-        grid.appendChild(el);
-      });
-    }
+      }
+
+      grid.appendChild(el);
+    });
+  }
 
     async function loadMine(){
-      const r = await fetch('/api/reviews/mine?sort=' + encodeURIComponent(
-        document.getElementById('sortSelect').value
-      ), { credentials:'include' });
-      
-      if (!r.ok) throw new Error('내 리뷰 불러오기 실패');
-      const list = await r.json();
-      MY_LIST = list || [];
+      const sort = document.getElementById('sortSelect').value;
+      const r = await fetch(`/api/reviews/mine?sort=${encodeURIComponent(sort)}`, { credentials:'include' });
+      if(!r.ok) throw new Error('내 리뷰 불러오기 실패');
+      return r.json();
     }
 
     async function loadBookmarks(){
-      const r = await fetch('/api/bookmarks/mine?sort=' + encodeURIComponent(document.getElementById('sortSelect').value), { credentials:'include' });
-      if (!r.ok) throw new Error('북마크 불러오기 실패');
-      const list = await r.json();
-      MY_LIST = list || [];
+      const sort = document.getElementById('sortSelect').value;
+      const r = await fetch(`/api/bookmarks/mine?sort=${encodeURIComponent(sort)}`, { credentials:'include' });
+      if(!r.ok) throw new Error('북마크 불러오기 실패');
+      return r.json();
     }
 
     async function loadCurrent(){
-      const state = document.getElementById('state');
-      state.textContent = '';
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '<p>불러오는 중...</p>';
       try{
-        if (MODE === 'mine') await loadMine();
-        else await loadBookmarks();
-        const how = document.getElementById('sortSelect').value;
-        render(applySort(MY_LIST, how));
+        MY_LIST = CURRENT_TAB === 'mine' ? await loadMine() : await loadBookmarks();
+        render(MY_LIST);
       }catch(e){
-        state.textContent = '오류가 발생했습니다.';
         console.error(e);
+        grid.innerHTML = '<p>목록을 불러오지 못했습니다.</p>';
       }
     }
 
+    // 탭/정렬 이벤트 바인딩
     document.addEventListener('DOMContentLoaded', ()=>{
-      // 정렬 변경
-      document.getElementById('sortSelect').addEventListener('change', ()=>{
-        render(applySort(MY_LIST, document.getElementById('sortSelect').value));
+      document.getElementById('tabMine')?.addEventListener('click', ()=>{
+        CURRENT_TAB = 'mine';
+        document.getElementById('tabMine').classList.add('active');
+        document.getElementById('tabBookmarks').classList.remove('active');
+        loadCurrent();
+      });
+      document.getElementById('tabBookmarks')?.addEventListener('click', ()=>{
+        CURRENT_TAB = 'bookmarks';
+        document.getElementById('tabBookmarks').classList.add('active');
+        document.getElementById('tabMine').classList.remove('active');
+        loadCurrent();
       });
 
-      // 탭 클릭
-      document.querySelectorAll('#tabs [data-mode]').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          MODE = btn.dataset.mode;                // 'mine' or 'bookmarks'
-          document.querySelectorAll('#tabs .btn').forEach(b=> b.classList.remove('active'));
-          btn.classList.add('active');
-          loadCurrent();
-        });
-      });
+      document.getElementById('sortSelect')?.addEventListener('change', loadCurrent);
 
-      // 기본 탭 선택
-      document.querySelector('#tabs [data-mode="mine"]').classList.add('active');
+      // 초기 로드(내 리뷰 탭)
+      CURRENT_TAB = 'mine';
+      document.getElementById('tabMine')?.classList.add('active');
       loadCurrent();
     });
   </script>
+
 
   <script>
     (function initAuth(){

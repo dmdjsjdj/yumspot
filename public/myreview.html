@@ -191,26 +191,27 @@
     }
 
     // 탭/정렬 이벤트 바인딩
-    document.addEventListener('DOMContentLoaded', ()=>{
-      document.getElementById('tabMine')?.addEventListener('click', ()=>{
-        CURRENT_TAB = 'mine';
-        document.getElementById('tabMine').classList.add('active');
-        document.getElementById('tabBookmarks').classList.remove('active');
+    document.addEventListener('DOMContentLoaded', () => {
+      const tabs = document.querySelectorAll('#tabs [data-mode]');
+      const sortSel = document.getElementById('sortSelect');
+
+      // 탭 활성화 + 데이터 로드
+      function setActive(mode){
+        window.CURRENT_TAB = mode; // 전역 상태 갱신
+        tabs.forEach(btn => btn.classList.toggle('active', btn.dataset.mode === mode));
         loadCurrent();
-      });
-      document.getElementById('tabBookmarks')?.addEventListener('click', ()=>{
-        CURRENT_TAB = 'bookmarks';
-        document.getElementById('tabBookmarks').classList.add('active');
-        document.getElementById('tabMine').classList.remove('active');
-        loadCurrent();
+      }
+
+      // 각 탭에 클릭 핸들러 연결
+      tabs.forEach(btn => {
+        btn.addEventListener('click', () => setActive(btn.dataset.mode));
       });
 
-      document.getElementById('sortSelect')?.addEventListener('change', loadCurrent);
+      // 정렬 변경 시 재로딩
+      sortSel?.addEventListener('change', loadCurrent);
 
-      // 초기 로드(내 리뷰 탭)
-      CURRENT_TAB = 'mine';
-      document.getElementById('tabMine')?.classList.add('active');
-      loadCurrent();
+      // 초기: 내 리뷰 탭 선택
+      setActive('mine');
     });
   </script>
 

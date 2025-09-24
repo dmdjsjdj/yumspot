@@ -100,6 +100,7 @@
           <div class="top">
             <h2>${review.title}</h2>
             <div>
+              <button class="btn" id="bookmarkBtn">북마크 ★</button>
               ${isOwner ? `
                 <button class="btn" id="editBtn">수정</button>
                 <button class="btn" id="delBtn" style="background:#ef5350;">삭제</button>
@@ -119,6 +120,37 @@
           <div id="map" style="width:100%;height:300px;border-radius:8px;margin-top:10px;"></div>
         `;
 
+        // ⭐ 북마크 버튼 상태 반영
+        const bmBtn = document.getElementById('bookmarkBtn');
+        let bookmarked = false;
+        try{
+          const bmRes = await fetch(`/api/bookmarks/${review.id}`, { credentials:'include' });
+          if(bmRes.ok){
+            const bmData = await bmRes.json();
+            bookmarked = bmData.bookmarked;
+            bmBtn.textContent = bookmarked ? '북마크 해제 ★' : '북마크 추가 ☆';
+          }
+        }catch(_){}
+
+        bmBtn.addEventListener('click', async ()=>{
+          try{
+            if(!bookmarked){
+              const r = await fetch(`/api/bookmarks/${review.id}`, { method:'POST', credentials:'include' });
+              if(!r.ok) throw new Error('북마크 실패');
+              bookmarked = true;
+              bmBtn.textContent = '북마크 해제 ★';
+            }else{
+              const r = await fetch(`/api/bookmarks/${review.id}`, { method:'DELETE', credentials:'include' });
+              if(!r.ok) throw new Error('해제 실패');
+              bookmarked = false;
+              bmBtn.textContent = '북마크 추가 ☆';
+            }
+          }catch(e){
+            alert(e.message || '오류 발생');
+          }
+        });
+
+        // 수정/삭제 버튼
         if(isOwner){
           document.getElementById('editBtn').addEventListener('click', ()=>{
             location.href = `editreview.html?id=${review.id}`;
@@ -134,7 +166,7 @@
           });
         }
 
-        // 3) Kakao 지도 안전 로딩
+        // 지도 로딩
         const run = () => renderMap(review);
         if (window.kakao?.maps?.load) {
           kakao.maps.load(run);

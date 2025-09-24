@@ -27,6 +27,8 @@
     .empty { opacity:.35; }
     .cta { margin-top:10px; display:flex; gap:8px; }
     .state { padding:32px 0; color:#444; }
+
+    .btn.secondary.active { background:#42A5F5; color:#fff; }
   </style>
   <script src="/utils/categoryLists.js"></script>
 </head>
@@ -53,7 +55,9 @@
           <option value="oldest">날짜순(오래된)</option>
           <option value="ratingDesc">별점순(높은↓)</option>
           <option value="ratingAsc">별점순(낮은↑)</option>
-          <option value="bookmark">북마크순(준비중)</option>
+          <!-- 북마크 탭에서만 의미있는 정렬 -->
+          <option value="addedLatest">북마크 추가순(최신)</option>
+          <option value="addedOldest">북마크 추가순(오래된)</option>
         </select>
         <a class="btn" href="plusreviewpage.html">+ 리뷰 작성</a>
       </div>
@@ -65,6 +69,14 @@
 
   <script>
     let MY_LIST = [];
+    let ACTIVE_TAB = 'mine'; // 기본: 내가 쓴 리뷰
+
+    function fmtDate(s){
+      if(!s) return '-';
+      const d = new Date(s);
+      if (isNaN(d.getTime())) return '-';
+      return d.toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' });
+    }
 
     async function requireAuth(){
       const r = await fetch('/check-auth', { credentials:'include' });
@@ -79,14 +91,23 @@
 
     function applySort(list, how){
       const arr = list.slice();
-      if(how === 'latest'){
-        arr.sort((a,b)=> new Date(b.created_at||0) - new Date(a.created_at||0));
-      }else if(how === 'oldest'){
-        arr.sort((a,b)=> new Date(a.created_at||0) - new Date(b.created_at||0));
-      }else if(how === 'ratingHigh'){
-        arr.sort((a,b)=> (b.rating||0) - (a.rating||0));
-      }else if(how === 'ratingLow'){
-        arr.sort((a,b)=> (a.rating||0) - (b.rating||0));
+      const getDate = x => new Date(x.created_at||0);              // 리뷰 작성일
+      const getAdded = x => new Date(x.bookmark_created_at||0);     // 북마크 추가일
+
+      switch((how||'latest').toLowerCase()){
+        case 'oldest':
+          arr.sort((a,b)=> getDate(a) - getDate(b)); break;
+        case 'ratingdesc':
+          arr.sort((a,b)=> (b.rating||0) - (a.rating||0) || getDate(b)-getDate(a)); break;
+        case 'ratingasc':
+          arr.sort((a,b)=> (a.rating||0) - (b.rating||0) || getDate(b)-getDate(a)); break;
+        case 'addedlatest': // 북마크 탭용
+          arr.sort((a,b)=> getAdded(b) - getAdded(a)); break;
+        case 'addedoldest': // 북마크 탭용
+          arr.sort((a,b)=> getAdded(a) - getAdded(b)); break;
+        case 'latest':
+        default:
+          arr.sort((a,b)=> getDate(b) - getDate(a)); break;
       }
       return arr;
     }
@@ -95,10 +116,12 @@
       const grid = document.getElementById('grid');
       const state = document.getElementById('state');
       grid.innerHTML = '';
-      state.textContent = '';
+      if(state) state.textContent = '';
 
       if(!list || list.length === 0){
-        state.textContent = '아직 내 리뷰가 없습니다. 상단의 “+ 리뷰 작성” 버튼으로 첫 리뷰를 남겨보세요!';
+        if(state) state.textContent = (ACTIVE_TAB === 'mine')
+          ? '아직 내 리뷰가 없습니다. “+ 리뷰 작성”으로 첫 리뷰를 남겨보세요!'
+          : '아직 북마크한 리뷰가 없습니다.';
         return;
       }
 

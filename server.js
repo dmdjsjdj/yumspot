@@ -288,6 +288,109 @@ app.get('/api/reviews', async (req, res) => {
   res.json(data);
 });
 
+
+app.get('/api/bookmarks', requireLogin, async (req, res) => {
+  try {
+    const sort = (req.query.sort || 'latest').toLowerCase();
+
+    // bookmarks 기준으로 조인해서 reviews의 주요 필드 가져오기
+    let q = supabase
+      .from('bookmarks')
+      .select(`
+        created_at,
+        reviews:reviews (
+          id, title, rating, restaurant_name, image_url, created_at
+        )
+      `)
+      .eq('user_id', req.user.id);
+
+    // 정렬: 기본은 리뷰의 created_at 최신순
+    switch (sort) {
+      case 'oldest':
+        q = q.order('reviews(created_at)', { ascending: true });
+        break;
+      case 'ratingdesc':
+        q = q.order('reviews(rating)', { ascending: false }).order('reviews(created_at)', { ascending: false });
+        break;
+      case 'ratingasc':
+        q = q.order('reviews(rating)', { ascending: true }).order('reviews(created_at)', { ascending: false });
+        break;
+      case 'addedlatest': // 북마크 추가일 최신순
+        q = q.order('created_at', { ascending: false });
+        break;
+      case 'addedoldest': // 북마크 추가일 오래된순
+        q = q.order('created_at', { ascending: true });
+        break;
+      case 'latest':
+      default:
+        q = q.order('reviews(created_at)', { ascending: false });
+        break;
+    }
+
+    const { data, error } = await q;
+    if (error) return res.status(500).json({ message: '조회 실패' });
+
+    // 프런트에서 기존 렌더와 동일하게 쓰기 위해 평탄화
+    const list = (data || []).map(row => ({
+      ...row.reviews,
+      // 북마크 추가일도 필요하면 같이 넘겨줌(옵션)
+      bookmark_created_at: row.created_at
+    })).filter(Boolean);
+
+    res.json(list);
+  } catch (e) {
+    res.status(500).json({ message: '조회 실패', detail: String(e.message || e) });
+  }
+});
+
+// 북마크 추가
+app.post('/api/bookmarks/:id', requireLogin, async (req, res) => {
+  try {
+    const reviewId = req.params.id;
+    const { error } = await supabase
+      .from('bookmarks')
+      .insert([{ user_id: req.user.id, review_id: reviewId }]);
+    if (error && !error.message.includes('duplicate')) throw error; // 중복일 때는 무시
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ message: '북마크 추가 실패', detail: String(e.message || e) });
+  }
+});
+
+
+// 북마크 해제
+app.delete('/api/bookmarks/:id', requireLogin, async (req, res) => {
+  try {
+    const reviewId = req.params.id;
+    const { error } = await supabase
+      .from('bookmarks')
+      .delete()
+      .eq('user_id', req.user.id)
+      .eq('review_id', reviewId);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ message: '북마크 해제 실패', detail: String(e.message || e) });
+  }
+});
+
+// 특정 리뷰에 내가 북마크했는지 여부 확인
+app.get('/api/bookmarks/:id', requireLogin, async (req, res) => {
+  try {
+    const reviewId = req.params.id;
+    const { data, error } = await supabase
+      .from('bookmarks')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .eq('review_id', reviewId)
+      .maybeSingle();
+    if (error) throw error;
+    res.json({ bookmarked: !!data });
+  } catch (e) {
+    res.status(500).json({ message: '조회 실패', detail: String(e.message || e) });
+  }
+});
+
 // 리뷰 상세 (소유자 여부 포함, 불필요한 노출 최소화)
 app.get('/api/reviews/:id', async (req, res) => {
   try {

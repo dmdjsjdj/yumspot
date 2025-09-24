@@ -430,29 +430,35 @@ app.get('/api/bookmarks/mine', requireLogin, async (req, res) => {
   try {
     const sort = (req.query.sort || 'latest').toLowerCase();
 
-    // 1) 내 북마크 행 가져오기
+    // 1) 내 북마크 행
     const { data: rows, error: e1 } = await supabase
       .from('bookmarks')
       .select('review_id, created_at')
       .eq('user_id', req.user.id);
 
-    if (e1) throw e1;
-
-    if (!rows || rows.length === 0) {
-      return res.json([]); // 빈 배열
+    if (e1) {
+      console.error('[bookmarks] stage1 error:', e1);
+      return res.status(500).json({ message: '조회 실패(1)', detail: String(e1.message || e1) });
     }
 
-    const ids = rows.map(r => r.review_id);
+    const ids = (rows || [])
+      .map(r => r.review_id)
+      .filter(Boolean); // NULL 제거
 
-    // 2) 해당 리뷰들 가져오기 (카드에서 쓰는 필드만)
+    if (ids.length === 0) return res.json([]);
+
+    // 2) 리뷰들 조회 (카드에 필요한 컬럼만)
     const { data: reviews, error: e2 } = await supabase
       .from('reviews')
       .select('id, title, rating, restaurant_name, image_url, created_at')
       .in('id', ids);
 
-    if (e2) throw e2;
+    if (e2) {
+      console.error('[bookmarks] stage2 error:', e2);
+      return res.status(500).json({ message: '조회 실패(2)', detail: String(e2.message || e2) });
+    }
 
-    // 3) 정렬 (프런트와 일관성 유지: 기본은 created_at desc)
+    // 3) 정렬
     const list = (reviews || []).slice();
     if (sort === 'oldest') {
       list.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
@@ -466,6 +472,7 @@ app.get('/api/bookmarks/mine', requireLogin, async (req, res) => {
 
     res.json(list);
   } catch (e) {
+    console.error('[bookmarks] fatal:', e);
     res.status(500).json({ message: '조회 실패', detail: String(e.message || e) });
   }
 });

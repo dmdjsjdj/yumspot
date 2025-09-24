@@ -145,7 +145,9 @@
     }
 
     async function loadMine(){
-      const r = await fetch('/api/reviews/mine?sort=' + encodeURIComponent(document.getElementById('sortSelect').value), { credentials:'include' });
+      const r = await fetch('/api/reviews/mine?sort=' + encodeURIComponent(
+        document.getElementById('sortSelect').value
+      ), { credentials:'include' });
       if (!r.ok) throw new Error('내 리뷰 불러오기 실패');
       const list = await r.json();
       MY_LIST = list || [];

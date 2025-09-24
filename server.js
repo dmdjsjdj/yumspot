@@ -255,7 +255,7 @@ app.get('/api/reviews', async (req, res) => {
   const { region, foodcategory, sub, sort = 'latest' } = req.query;
 
   let q = supabase.from('reviews')
-    .select('id, title, rating, foodcategory, subcategory, regionnames, subregion, restaurant_name, created_at, place_id, lat, lng,');
+    .select('id, title, rating, foodcategory, regionnames, restaurant_name, created_at');
 
   // 정렬
   if (sort === 'latest') {

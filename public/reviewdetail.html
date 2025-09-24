@@ -73,23 +73,23 @@
         const review = await res.json();
 
         // 2) 소유자 판단(백엔드에서 isOwner 내려주지만 방어)
-        let isOwner = !!rv.isOwner;
-        if(!isOwner && typeof rv.user_id !== 'undefined'){
+        let isOwner = !!revie.isOwner;
+        if(!isOwner && typeof revie.user_id !== 'undefined'){
           try {
             const meRes = await fetch('/api/me', { credentials:'include' });
             if (meRes.ok) {
               const me = await meRes.json();
-              if (me && (me.id === rv.user_id || me.user_id === rv.user_id)) isOwner = true;
+              if (me && (me.id === revie.user_id || me.user_id === revie.user_id)) isOwner = true;
             }
           } catch(_) {}
         }
 
-        const stars = '★'.repeat(Number(rv.rating)||0) +
-                      '<span class="empty">' + '☆'.repeat(5-(Number(rv.rating)||0)) + '</span>';
+        const stars = '★'.repeat(Number(revie.rating)||0) +
+                      '<span class="empty">' + '☆'.repeat(5-(Number(revie.rating)||0)) + '</span>';
 
         el.innerHTML = `
           <div class="top">
-            <h2>${rv.title}</h2>
+            <h2>${revie.title}</h2>
             <div>
               ${isOwner ? `
                 <button class="btn" id="editBtn">수정</button>
@@ -99,25 +99,25 @@
             </div>
           </div>
           <p class="rating">${stars}</p>
-          <p class="meta">작성일: ${fmtDate(rv.created_at)}</p>
-          <p class="meta">카테고리: ${rv.foodcategory ?? '-'} | 지역: ${rv.regionnames ?? '-'}</p>
-          <p class="meta">식당: ${rv.restaurant_name ?? ''}</p>
-          <p class="meta">주소: <span id="addr">${rv.address ?? ''}</span>
+          <p class="meta">작성일: ${fmtDate(revie.created_at)}</p>
+          <p class="meta">카테고리: ${revie.foodcategory ?? '-'} | 지역: ${revie.regionnames ?? '-'}</p>
+          <p class="meta">식당: ${revie.restaurant_name ?? ''}</p>
+          <p class="meta">주소: <span id="addr">${revie.address ?? ''}</span>
             <button class="btn" style="padding:6px 10px;" onclick="copyAddr()">복사</button>
           </p>
-          ${rv.image_url ? `<img src="${rv.image_url}" alt="review image">` : ''}
-          <p>${(rv.content||'').replace(/\n/g,'<br>')}</p>
+          ${revie.image_url ? `<img src="${revie.image_url}" alt="review image">` : ''}
+          <p>${(revie.content||'').replace(/\n/g,'<br>')}</p>
           <div id="map" style="width:100%;height:300px;border-radius:8px;margin-top:10px;"></div>
         `;
 
         if(isOwner){
           document.getElementById('editBtn').addEventListener('click', ()=>{
-            location.href = `editreview.html?id=${rv.id}`;
+            location.href = `editreview.html?id=${revie.id}`;
           });
           document.getElementById('delBtn').addEventListener('click', async ()=>{
             if(!confirm('이 리뷰를 삭제하시겠습니까?')) return;
             try{
-              const r = await fetch(`/api/reviews/${rv.id}`, { method:'DELETE', credentials:'include' });
+              const r = await fetch(`/api/reviews/${revie.id}`, { method:'DELETE', credentials:'include' });
               if(!r.ok) throw new Error('삭제 실패');
               alert('삭제되었습니다.');
               location.href = 'myreview.html';
@@ -151,7 +151,7 @@
         const map = new kakao.maps.Map($map, { center, level: 3 });
         new kakao.maps.Marker({ position: center, map });
       }
-      if (rv.lat != null && rv.lng != null) {
+      if (revie.lat != null && revie.lng != null) {
         draw(Number(review.lat), Number(review.lng)); return;
       }
       const ps = new kakao.maps.services.Places();

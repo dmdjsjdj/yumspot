@@ -193,27 +193,27 @@
       try{
         const res = await fetch(`/api/reviews/${id}`, { credentials: 'include' });
         if(!res.ok) throw new Error('불러오기 실패');
-        const rv = await res.json();
-        if(rv.isOwner === false){ alert('수정 권한이 없습니다.'); location.href='reviewdetail.html?id='+id; return; }
+        const review = await res.json();
+        if(review.isOwner === false){ alert('수정 권한이 없습니다.'); location.href='reviewdetail.html?id='+id; return; }
 
-        title.value = rv.title ?? '';
-        restaurant_name.value = rv.restaurant_name ?? '';
-        address.value = rv.address ?? '';
-        rating.value = rv.rating ?? '';
-        foodcategory.value = rv.foodcategory ?? '';
-        regionnames.value = rv.regionnames ?? '';
-        content.value = rv.content ?? '';
+        title.value = review.title ?? '';
+        restaurant_name.value = review.restaurant_name ?? '';
+        address.value = review.address ?? '';
+        rating.value = review.rating ?? '';
+        foodcategory.value = review.foodcategory ?? '';
+        regionnames.value = review.regionnames ?? '';
+        content.value = review.content ?? '';
         // ⬇️ 텍스트 image_url 인풋은 없으므로 더 이상 세팅하지 않음
 
         // 좌표
-        document.getElementById('lat').value = rv.lat ?? '';
-        document.getElementById('lng').value = rv.lng ?? '';
+        document.getElementById('lat').value = review.lat ?? '';
+        document.getElementById('lng').value = review.lng ?? '';
 
         // 기존 이미지 URL 보관
-        oldImageUrl = rv.image_url ?? null;
+        oldImageUrl = review.image_url ?? null;
 
-        fillSubFood(rv.subcategory || '');
-        fillSubRegion(rv.subregion || '');
+        fillSubFood(review.subcategory || '');
+        fillSubRegion(review.subregion || '');
       }catch(e){
         alert(e.message || '리뷰 정보를 불러오지 못했습니다.');
       }

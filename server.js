@@ -282,7 +282,7 @@ app.get('/api/reviews', async (req, res) => {
 app.get('/api/reviews/:id', async (req, res) => {
   try {
     // 필요한 컬럼만 명시적으로 선택 (lat/lng, subcategory/subregion 포함)
-    const { data: rv, error } = await supabase
+    const { data: review, error } = await supabase
       .from('reviews')
       .select(`
         id, user_id,
@@ -297,13 +297,13 @@ app.get('/api/reviews/:id', async (req, res) => {
       .maybeSingle();
 
     if (error) throw error;
-    if (!rv) return res.status(404).json({ message: '없음' });
+    if (!review) return res.status(404).json({ message: '없음' });
 
     // 소유자 판별
-    const isOwner = !!(req.user && req.user.id === rv.user_id);
+    const isOwner = !!(req.user && req.user.id === review.user_id);
 
     // 응답 페이로드 구성 (소유자가 아니면 user_id 숨김)
-    const payload = { ...rv, isOwner };
+    const payload = { ...review, isOwner };
     if (!isOwner) delete payload.user_id;
 
     return res.json(payload);
@@ -362,13 +362,13 @@ app.put('/api/reviews/:id', requireLogin, async (req, res) => {
   const id = req.params.id;
 
   // 소유자 확인 + 기존 데이터 조회(이전 이미지 URL 비교 위해)
-  const { data: rv, error: e1 } = await supabase
+  const { data: review, error: e1 } = await supabase
     .from('reviews')
     .select('user_id, image_url')
     .eq('id', id)
     .maybeSingle();
-  if (e1 || !rv) return res.status(404).json({ message: '없음' });
-  if (rv.user_id !== req.user.id) return res.status(403).json({ message: '권한 없음' });
+  if (e1 || !review) return res.status(404).json({ message: '없음' });
+  if (review.user_id !== req.user.id) return res.status(403).json({ message: '권한 없음' });
 
   const payload = req.body || {};
   const update = {
@@ -387,7 +387,7 @@ app.put('/api/reviews/:id', requireLogin, async (req, res) => {
     lng: payload.lng ?? null,
   };
 
-  const prevUrl = rv.image_url || null;
+  const prevUrl = review.image_url || null;
   const nextUrl = update.image_url || null;
 
   const { error } = await supabase.from('reviews').update(update).eq('id', id);
@@ -408,13 +408,13 @@ app.put('/api/reviews/:id', requireLogin, async (req, res) => {
 app.delete('/api/reviews/:id', requireLogin, async (req, res) => {
   const id = req.params.id;
 
-  const { data: rv, error: e1 } = await supabase
+  const { data: review, error: e1 } = await supabase
     .from('reviews')
     .select('user_id, image_url')
     .eq('id', id)
     .maybeSingle();
-  if (e1 || !rv) return res.status(404).json({ message: '없음' });
-  if (rv.user_id !== req.user.id) return res.status(403).json({ message: '권한 없음' });
+  if (e1 || !review) return res.status(404).json({ message: '없음' });
+  if (review.user_id !== req.user.id) return res.status(403).json({ message: '권한 없음' });
 
   const { error } = await supabase.from('reviews').delete().eq('id', id);
   if (error) return res.status(500).json({ message: '삭제 실패' });

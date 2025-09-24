@@ -257,6 +257,16 @@ app.get('/api/reviews', async (req, res) => {
   let q = supabase.from('reviews')
     .select('id, title, rating, foodcategory, subcategory, regionnames, subregion, restaurant_name, created_at');
 
+  // 대분류 필터
+  if (region) q = q.eq('regionnames', region);
+  if (foodcategory) q = q.eq('foodcategory', foodcategory);
+
+  // 소분류 필터
+  if (sub) {
+    if (region)      q = q.eq('subregion', sub);
+    if (foodcategory) q = q.eq('subcategory', sub);
+  }
+
   // 정렬
   switch ((sort || 'latest').toLowerCase()) {
     case 'oldest':
@@ -271,16 +281,6 @@ app.get('/api/reviews', async (req, res) => {
     default:
       q = q.order('created_at', { ascending: false });
       break;
-  }
-
-  // 대분류 필터
-  if (region) q = q.eq('regionnames', region);
-  if (foodcategory) q = q.eq('foodcategory', foodcategory);
-
-  // 소분류 필터
-  if (sub) {
-    if (region)      q = q.eq('subregion', sub);
-    if (foodcategory) q = q.eq('subcategory', sub);
   }
 
   const { data, error } = await q;

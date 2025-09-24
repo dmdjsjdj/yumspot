@@ -47,7 +47,9 @@
       </select>
       <select id="sort">
         <option value="latest">최신순</option>
-        <option value="bookmark">북마크 많은 순(예정)</option>
+        <option value="oldest">오래된순</option>
+        <option value="bookmarkDesc">북마크 많은순(준비중)</option>
+        <option value="bookmarkAsc">북마크 적은순(준비중)</option>
       </select>
       <!-- 보기 버튼 제거 -->
     </div>
@@ -119,7 +121,7 @@
     }
 
     function renderCards(list, grid){
-      if (!list || list.length === 0) {
+     if (!list || list.length === 0) {
         grid.innerHTML = '<p>해당 지역 리뷰가 없습니다.</p>';
         return;
       }

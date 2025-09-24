@@ -290,7 +290,7 @@ app.get('/api/reviews/:id', async (req, res) => {
         rating, content, image_url,
         foodcategory, subcategory,
         regionnames, subregion,
-        created_at, updated_at,
+        created_at,
         place_id, lat, lng
       `)
       .eq('id', req.params.id)

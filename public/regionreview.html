@@ -109,8 +109,8 @@
 
         if (sub) {
           const kw = sub.replace(/\s+/g, '');
-          list = list.filter(rv => {
-            const txt = ((rv.address || '') + ' ' + (rv.regionnames || '')).replace(/\s+/g, '');
+          list = list.filter(review => {
+            const txt = ((review.address || '') + ' ' + (review.regionnames || '')).replace(/\s+/g, '');
             return txt.includes(kw);
           });
         }
@@ -123,15 +123,15 @@
     }
 
     function renderCards(list, grid) {
-      list.forEach(rv => {
-        const stars = '★'.repeat(rv.rating) + '<span class="empty">' + '☆'.repeat(5 - rv.rating) + '</span>';
+      list.forEach(review => {
+        const stars = '★'.repeat(review.rating) + '<span class="empty">' + '☆'.repeat(5 - review.rating) + '</span>';
         const el = document.createElement('div');
         el.className = 'card';
-        el.innerHTML = `<h3>${rv.title}</h3><p class="rating">${stars}</p>
-        <p>${rv.restaurant_name ?? ''}</p>
-        <p class="meta">작성일: ${fmtDate(rv.created_at)}</p>
+        el.innerHTML = `<h3>${review.title}</h3><p class="rating">${stars}</p>
+        <p>${review.restaurant_name ?? ''}</p>
+        <p class="meta">작성일: ${fmtDate(review.created_at)}</p>
         `;
-        el.addEventListener('click', () => location.href = `reviewdetail.html?id=${rv.id}`);
+        el.addEventListener('click', () => location.href = `reviewdetail.html?id=${review.id}`);
         grid.appendChild(el);
       });
       if (list.length === 0) grid.innerHTML = '<p>해당 지역 리뷰가 없습니다.</p>';

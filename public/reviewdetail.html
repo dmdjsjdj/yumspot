@@ -45,27 +45,48 @@
     const params = new URLSearchParams(location.search);
     const id = params.get('id');
 
+    // 날짜 표시 헬퍼
+    function fmtDate(s){
+      if(!s) return '-';
+      const d = new Date(s);
+      if (isNaN(d.getTime())) return '-';
+      return d.toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'});
+    }
+
     async function loadDetail(){
       const el = document.getElementById('card');
       el.innerHTML = '';
-      try{
-        const res = await fetch(`/api/reviews/${id}`);
-        if(!res.ok) throw new Error('불러오기 실패');
-        const rv = await res.json();
 
-        // 소유자 판단
+      // 1) id 유효성
+      if(!id){
+        el.innerHTML = '<p>잘못된 접근입니다. (id 없음)</p>';
+        return;
+      }
+
+      try{
+        const res = await fetch(`/api/reviews/${encodeURIComponent(id)}`);
+        if(!res.ok){
+          const txt = await res.text().catch(()=> '');
+          console.error('[detail] HTTP', res.status, txt);
+          throw new Error('불러오기 실패');
+        }
+        const review = await res.json();
+
+        // 2) 소유자 판단(백엔드에서 isOwner 내려주지만 방어)
         let isOwner = !!rv.isOwner;
-        if(!isOwner && rv.user_id !== undefined){
+        if(!isOwner && typeof rv.user_id !== 'undefined'){
           try {
-            const me = await fetch('/api/me', { credentials:'include' }).then(r=>r.ok?r.json():null);
-            if(me && (me.id === rv.user_id || me.user_id === rv.user_id)) isOwner = true;
+            const meRes = await fetch('/api/me', { credentials:'include' });
+            if (meRes.ok) {
+              const me = await meRes.json();
+              if (me && (me.id === rv.user_id || me.user_id === rv.user_id)) isOwner = true;
+            }
           } catch(_) {}
         }
 
-        const stars='★'.repeat(rv.rating)+'<span class="empty">'+'☆'.repeat(5-rv.rating)+'</span>';
-        const dateText = rv.created_at
-        ? new Date(rv.created_at).toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' })
-        : '-';
+        const stars = '★'.repeat(Number(rv.rating)||0) +
+                      '<span class="empty">' + '☆'.repeat(5-(Number(rv.rating)||0)) + '</span>';
+
         el.innerHTML = `
           <div class="top">
             <h2>${rv.title}</h2>
@@ -78,14 +99,14 @@
             </div>
           </div>
           <p class="rating">${stars}</p>
-          <p class="meta">작성일: ${dateText}</p>
+          <p class="meta">작성일: ${fmtDate(rv.created_at)}</p>
           <p class="meta">카테고리: ${rv.foodcategory ?? '-'} | 지역: ${rv.regionnames ?? '-'}</p>
           <p class="meta">식당: ${rv.restaurant_name ?? ''}</p>
-          <p class="meta">주소: <span id="addr">${rv.address ?? ''}</span> <button class="btn" style="padding:6px 10px;" onclick="copyAddr()">복사</button></p>
+          <p class="meta">주소: <span id="addr">${rv.address ?? ''}</span>
+            <button class="btn" style="padding:6px 10px;" onclick="copyAddr()">복사</button>
+          </p>
           ${rv.image_url ? `<img src="${rv.image_url}" alt="review image">` : ''}
           <p>${(rv.content||'').replace(/\n/g,'<br>')}</p>
-
-          <!-- 지도 영역 -->
           <div id="map" style="width:100%;height:300px;border-radius:8px;margin-top:10px;"></div>
         `;
 
@@ -104,52 +125,51 @@
           });
         }
 
-        // ✅ SDK 로드 완료 후 지도 렌더
-        const run = () => renderMap(rv);
-        if (window.kakao && kakao.maps && kakao.maps.load) {
+        // 3) Kakao 지도 안전 로딩
+        const run = () => renderMap(review);
+        if (window.kakao?.maps?.load) {
           kakao.maps.load(run);
         } else {
           const sdk = document.querySelector('script[src*="dapi.kakao.com"]');
-          if (sdk) sdk.addEventListener('load', () => kakao.maps.load(run), { once:true });
-          else window.addEventListener('load', () => kakao.maps.load(run), { once:true });
+          if (sdk) {
+            sdk.addEventListener('load', () => kakao.maps.load(run), { once:true });
+          } else {
+            window.addEventListener('load', () => kakao.maps.load(run), { once:true });
+          }
         }
+
       }catch(e){
-        document.getElementById('card').innerHTML = '<p>리뷰를 불러오지 못했습니다.</p>';
+        console.error('[detail] 실패:', e);
+        el.innerHTML = '<p>리뷰를 불러오지 못했습니다.</p>';
       }
     }
 
-    function renderMap(rv){
+    function renderMap(review){
       const $map = document.getElementById('map');
       function draw(lat, lng){
         const center = new kakao.maps.LatLng(lat, lng);
         const map = new kakao.maps.Map($map, { center, level: 3 });
         new kakao.maps.Marker({ position: center, map });
       }
-
-      // 1) 좌표가 저장돼 있으면 바로 표시
       if (rv.lat != null && rv.lng != null) {
-        draw(Number(rv.lat), Number(rv.lng));
-        return;
+        draw(Number(review.lat), Number(review.lng)); return;
       }
-
-      // 2) 없으면 식당명+주소로 검색해서 표시
       const ps = new kakao.maps.services.Places();
-      const q = rv.restaurant_name ? (rv.address ? `${rv.restaurant_name} ${rv.address}` : rv.restaurant_name) : rv.address;
+      const q = review.restaurant_name ? (review.address ? `${review.restaurant_name} ${review.address}` : review.restaurant_name) : review.address;
       if(!q){ $map.innerHTML = '<p style="color:#555">지도 정보를 표시할 수 없습니다.</p>'; return; }
-
       ps.keywordSearch(q, (data, status)=>{
         if(status !== kakao.maps.services.Status.OK || !data?.length){
           $map.innerHTML = '<p style="color:#555">지도 정보를 표시할 수 없습니다.</p>'; return;
         }
-        const lat = Number(data[0].y), lng = Number(data[0].x);
-        draw(lat, lng);
+        draw(Number(data[0].y), Number(data[0].x));
       });
     }
 
     function copyAddr(){
-      const txt = document.getElementById('addr').textContent;
+      const txt = document.getElementById('addr')?.textContent || '';
       navigator.clipboard.writeText(txt).then(()=>alert('주소가 복사되었습니다.'));
     }
+
     window.onload = loadDetail;
   </script>
 

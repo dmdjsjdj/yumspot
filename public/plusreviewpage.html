@@ -352,8 +352,9 @@
       try{
         if (!window.sb) { alert('이미지 업로드 클라이언트 초기화 실패'); return; }
 
-        const file = document.getElementById('image_file').files[0];
-        const uploadedUrl = await uploadImageAndGetUrl(file);
+        const file = document.getElementById('image_file').files[0] || null;
+        let uploadedUrl = null;
+        if (file) uploadedUrl = await uploadImageAndGetUrl(file);
 
         const body = {
           title: title.value.trim(),
@@ -365,8 +366,8 @@
           regionnames: regionnames.value,
           subregion: document.getElementById('subregion').value || null,
           content: content.value.trim(),
-          // ⬇️ 텍스트 인풋 참조 삭제! 업로드 URL만 전달
-          image_url: uploadedUrl,
+          image_url: uploadedUrl ?? oldImageUrl ?? null,
+          
           lat: document.getElementById('lat').value ? Number(document.getElementById('lat').value) : null,
           lng: document.getElementById('lng').value ? Number(document.getElementById('lng').value) : null
         };

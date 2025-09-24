@@ -290,8 +290,8 @@ app.get('/api/reviews/:id', async (req, res) => {
         rating, content, image_url,
         foodcategory, subcategory,
         regionnames, subregion,
-        created_at, updated_at
-        place_id, lat, lng,
+        created_at, updated_at,
+        place_id, lat, lng
       `)
       .eq('id', req.params.id)
       .maybeSingle();
@@ -344,7 +344,7 @@ app.post('/api/reviews', requireLogin, async (req, res) => {
     address: payload.address,
     rating: payload.rating,
     content: payload.content,
-    image_url: payload.image_url,
+    image_url: payload.image_url ?? null,
     foodcategory: payload.foodcategory,
     regionnames: payload.regionnames,
     subcategory: payload.subcategory || null,

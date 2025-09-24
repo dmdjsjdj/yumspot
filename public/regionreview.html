@@ -55,52 +55,44 @@
   </div>
 
   <script>
-    // 날짜 포맷 헬퍼 (YYYY.MM.DD)
     function fmtDate(s){
       if(!s) return '-';
       const d = new Date(s);
       if (isNaN(d.getTime())) return '-';
       return d.toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' });
     }
-  </script>
 
-  <script>
-    // 간단 디바운스(연속 변경 시 과도한 호출 방지)
     function debounce(fn, ms = 250) {
       let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
     }
     const debouncedLoad = debounce(load, 250);
 
     document.addEventListener('DOMContentLoaded', () => {
-      const regionSel = document.getElementById('region');
-      const subSel = document.getElementById('subRegion');
-      const sortSel = document.getElementById('sort');
+      const $region = document.getElementById('region');
+      const $sub = document.getElementById('subRegion');
+      const $sort = document.getElementById('sort');
 
-      // 대분류 채우기
-      regionSel.innerHTML = (window.regionCategories || []).map(v => `<option>${v}</option>`).join('');
+      // 대분류 채우기 (첫 항목 자동 선택)
+      $region.innerHTML = (window.regionCategories || []).map(v => `<option>${v}</option>`).join('');
 
-      // 대분류 바뀌면 소분류 갱신 + 자동 로드
-      regionSel.addEventListener('change', () => { fillSubregions(); debouncedLoad(); });
+      $region.addEventListener('change', () => { fillSubregions(); debouncedLoad(); });
+      $sub.addEventListener('change', debouncedLoad);
+      $sort.addEventListener('change', debouncedLoad);
 
-      // 소분류/정렬 변경 시 자동 로드
-      subSel.addEventListener('change', debouncedLoad);
-      sortSel.addEventListener('change', debouncedLoad);
-
-      // 초기 세팅 + 첫 로드
       fillSubregions();
       load();
     });
 
-    function fillSubregions() {
+    function fillSubregions(){
       const big = document.getElementById('region').value;
       const subs = (window.regionTree && window.regionTree[big]) || [];
-      const subSel = document.getElementById('subRegion');
-      subSel.innerHTML = `<option value="">전체</option>` + subs.map(s => `<option>${s}</option>`).join('');
+      const $sub = document.getElementById('subRegion');
+      $sub.innerHTML = `<option value="">전체</option>` + subs.map(s => `<option>${s}</option>`).join('');
     }
 
-    async function load() {
-      const big = document.getElementById('region').value;
-      const sub = document.getElementById('subRegion').value;
+    async function load(){
+      const big  = document.getElementById('region').value;
+      const sub  = document.getElementById('subRegion').value;
       const sort = document.getElementById('sort').value;
 
       document.getElementById('title').textContent = sub ? `${big} · ${sub} 맛집` : `${big} 맛집`;
@@ -108,43 +100,43 @@
       const grid = document.getElementById('grid');
       grid.innerHTML = '';
 
-      try {
-        // 서버가 아직 subRegion 파라미터를 지원하지 않는다고 가정하고,
-        // 우선 대분류로 받아와 프런트에서 필터링
-        const res = await fetch(
-          `/api/reviews?region=${encodeURIComponent(big)}&sub=${encodeURIComponent(sub)}&sort=${sort}`
-        );
-        if (!res.ok) throw new Error('불러오기 실패');
-        let list = await res.json();
+      try{
+        // 서버가 subregion/정렬을 처리 → 그대로 전달만
+        const qs = new URLSearchParams();
+        qs.set('region', big);
+        if (sub) qs.set('sub', sub);
+        if (sort) qs.set('sort', sort);
 
-        if (sub) {
-          const kw = sub.replace(/\s+/g, '');
-          list = list.filter(review => {
-            const txt = ((review.address || '') + ' ' + (review.regionnames || '')).replace(/\s+/g, '');
-            return txt.includes(kw);
-          });
-        }
+        const res = await fetch('/api/reviews?' + qs.toString());
+        if(!res.ok) throw new Error('불러오기 실패');
+        const list = await res.json();
 
         renderCards(list, grid);
-      } catch (e) {
-        grid.innerHTML = '<p>오류가 발생했습니다.</p>';
+      }catch(e){
         console.error(e);
+        grid.innerHTML = '<p>오류가 발생했습니다.</p>';
       }
     }
 
-    function renderCards(list, grid) {
+    function renderCards(list, grid){
+      if (!list || list.length === 0) {
+        grid.innerHTML = '<p>해당 지역 리뷰가 없습니다.</p>';
+        return;
+      }
       list.forEach(review => {
-        const stars = '★'.repeat(review.rating) + '<span class="empty">' + '☆'.repeat(5 - review.rating) + '</span>';
+        const rating = Number(review.rating) || 0;
+        const stars = '★'.repeat(rating) + '<span class="empty">' + '☆'.repeat(5 - rating) + '</span>';
         const el = document.createElement('div');
         el.className = 'card';
-        el.innerHTML = `<h3>${review.title}</h3><p class="rating">${stars}</p>
-        <p>${review.restaurant_name ?? ''}</p>
-        <p class="meta">작성일: ${fmtDate(review.created_at)}</p>
+        el.innerHTML = `
+          <h3>${review.title}</h3>
+          <p class="rating">${stars}</p>
+          <p>${review.restaurant_name ?? ''}</p>
+          <p class="meta">작성일: ${fmtDate(review.created_at)}</p>
         `;
         el.addEventListener('click', () => location.href = `reviewdetail.html?id=${review.id}`);
         grid.appendChild(el);
       });
-      if (list.length === 0) grid.innerHTML = '<p>해당 지역 리뷰가 없습니다.</p>';
     }
   </script>
 

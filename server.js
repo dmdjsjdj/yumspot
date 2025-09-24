@@ -255,21 +255,31 @@ app.get('/api/reviews', async (req, res) => {
   const { region, foodcategory, sub, sort = 'latest' } = req.query;
 
   let q = supabase.from('reviews')
-    .select('id, title, rating, foodcategory, regionnames, restaurant_name, created_at');
+    .select('id, title, rating, foodcategory, subcategory, regionnames, subregion, restaurant_name, created_at');
 
   // 정렬
-  if (sort === 'latest') {
-    q = q.order('created_at', { ascending: false });
+  switch ((sort || 'latest').toLowerCase()) {
+    case 'oldest':
+      q = q.order('created_at', { ascending: true });
+      break;
+    case 'bookmarkdesc': // TODO: 북마크 많은순(미구현)
+    case 'bookmarkasc':  // TODO: 북마크 적은순(미구현)
+      // 북마크 테이블/컬럼 생기면 여기서 조인/카운트 정렬
+      q = q.order('created_at', { ascending: false });
+      break;
+    case 'latest':
+    default:
+      q = q.order('created_at', { ascending: false });
+      break;
   }
-  // TODO: 북마크순은 북마크 컬럼/테이블 추가 후 여기서 정렬
 
   // 대분류 필터
   if (region) q = q.eq('regionnames', region);
   if (foodcategory) q = q.eq('foodcategory', foodcategory);
 
-  // 소분류 필터 (둘 중 하나만 올 수 있음)
+  // 소분류 필터
   if (sub) {
-    if (region) q = q.eq('subregion', sub);
+    if (region)      q = q.eq('subregion', sub);
     if (foodcategory) q = q.eq('subcategory', sub);
   }
 

@@ -47,9 +47,11 @@
       </select>
       <select id="sort">
         <option value="latest">최신순</option>
-        <option value="bookmark">북마크 많은 순(예정)</option>
+        <option value="oldest">오래된순</option>
+        <option value="bookmarkDesc">북마크 많은순(준비중)</option>
+        <option value="bookmarkAsc">북마크 적은순(준비중)</option>
       </select>
-      <!-- 보기 버튼 제거 -->
+
     </div>
     <div id="grid" class="review-grid"></div>
   </div>
@@ -62,39 +64,35 @@
       if (isNaN(d.getTime())) return '-';
       return d.toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' });
     }
-  </script>
 
-  <script>
     function debounce(fn, ms = 250) {
       let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
     }
     const debouncedLoad = debounce(load, 250);
 
     document.addEventListener('DOMContentLoaded', () => {
-      const foodSel = document.getElementById('food');
-      const subSel  = document.getElementById('subFood');
-      const sortSel = document.getElementById('sort');
+      const $food = document.getElementById('food');
+      const $sub  = document.getElementById('subFood');
+      const $sort = document.getElementById('sort');
 
-      // 대분류 채우기
-      foodSel.innerHTML = (window.foodCategories || []).map(v => `<option>${v}</option>`).join('');
+      // 대분류 채우기 (첫 항목 자동 선택)
+      $food.innerHTML = (window.foodCategories || []).map(v => `<option>${v}</option>`).join('');
 
-      // 대분류 변경 시 소분류 갱신 + 자동 로드
-      foodSel.addEventListener('change', () => { fillSubfoods(); debouncedLoad(); });
+      // 이벤트
+      $food.addEventListener('change', () => { fillSubfoods(); debouncedLoad(); });
+      $sub.addEventListener('change', debouncedLoad);
+      $sort.addEventListener('change', debouncedLoad);
 
-      // 소분류/정렬 변경 시 자동 로드
-      subSel.addEventListener('change', debouncedLoad);
-      sortSel.addEventListener('change', debouncedLoad);
-
-      // 초기가입력 + 첫 로드
+      // 초기 세팅 + 첫 로드
       fillSubfoods();
       load();
     });
 
-    function fillSubfoods() {
+    function fillSubfoods(){
       const big = document.getElementById('food').value;
       const subs = (window.foodTree && window.foodTree[big]) || [];
-      const subSel = document.getElementById('subFood');
-      subSel.innerHTML = `<option value="">전체</option>` + subs.map(s => `<option>${s}</option>`).join('');
+      const $sub = document.getElementById('subFood');
+      $sub.innerHTML = `<option value="">전체</option>` + subs.map(s => `<option>${s}</option>`).join('');
     }
 
     async function load() {
@@ -107,43 +105,44 @@
       const grid = document.getElementById('grid');
       grid.innerHTML = '';
 
-      try {
-        // 서버에서 subcategory를 아직 지원하지 않는다고 가정하고
-        // 대분류로 받아서 프런트에서 임시 필터
-        const res = await fetch(
-          `/api/reviews?foodcategory=${encodeURIComponent(big)}&sub=${encodeURIComponent(sub)}&sort=${sort}`
-        );
-        if (!res.ok) throw new Error('불러오기 실패');
-        let list = await res.json();
+      try{
+        // 서버가 subcategory/정렬을 처리 → 그대로 전달만
+        const qs = new URLSearchParams();
+        qs.set('foodcategory', big);
+        if (sub) qs.set('sub', sub);
+        if (sort) qs.set('sort', sort);
 
-        if (sub) {
-          const kw = sub.replace(/\s+/g, '');
-          list = list.filter(review => {
-            const txt = ((review.foodcategory || '') + ' ' + (review.title || '') + ' ' + (review.content || '')).replace(/\s+/g, '');
-            return txt.includes(kw);
-          });
-        }
+        const res = await fetch('/api/reviews?' + qs.toString());
+        if(!res.ok) throw new Error('불러오기 실패');
+        const list = await res.json();
 
         renderCards(list, grid);
-      } catch (e) {
-        grid.innerHTML = '<p>오류가 발생했습니다.</p>';
+      }catch(e){
         console.error(e);
+        grid.innerHTML = '<p>오류가 발생했습니다.</p>';
       }
     }
 
-    function renderCards(list, grid) {
+
+    function renderCards(list, grid){
+      if (!list || list.length === 0) {
+        grid.innerHTML = '<p>해당 카테고리 리뷰가 없습니다.</p>';
+        return;
+      }
       list.forEach(review => {
-        const stars = '★'.repeat(review.rating) + '<span class="empty">' + '☆'.repeat(5 - review.rating) + '</span>';
+        const rating = Number(review.rating) || 0;
+        const stars = '★'.repeat(rating) + '<span class="empty">' + '☆'.repeat(5 - rating) + '</span>';
         const el = document.createElement('div');
         el.className = 'card';
-        el.innerHTML = `<h3>${review.title}</h3><p class="rating">${stars}</p>
-        <p>${review.restaurant_name ?? ''}</p>
-        <p class="meta">작성일: ${fmtDate(review.created_at)}</p>
+        el.innerHTML = `
+          <h3>${review.title}</h3>
+          <p class="rating">${stars}</p>
+          <p>${review.restaurant_name ?? ''}</p>
+          <p class="meta">작성일: ${fmtDate(review.created_at)}</p>
         `;
         el.addEventListener('click', () => location.href = `reviewdetail.html?id=${review.id}`);
         grid.appendChild(el);
       });
-      if (list.length === 0) grid.innerHTML = '<p>해당 카테고리 리뷰가 없습니다.</p>';
     }
   </script>
 

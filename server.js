@@ -232,53 +232,6 @@ app.get('/api/reviews/mine', requireLogin, async (req, res) => {
   }
 });
 
-// GET /api/bookmarks/mine?sort=latest|oldest|ratingDesc|ratingAsc
-app.get('/api/bookmarks/mine', requireLogin, async (req, res) => {
-  try {
-    const raw = String(req.query.sort || 'latest').toLowerCase();
-    const sort =
-      raw === 'oldest'     ? 'oldest'     :
-      raw === 'ratingdesc' ? 'ratingdesc' :
-      raw === 'ratingasc'  ? 'ratingasc'  : 'latest';
-
-    // 1) 내가 북마크한 review_id 목록
-    const { data: bm, error: e1 } = await supabase
-      .from('bookmarks')
-      .select('review_id')
-      .eq('user_id', req.user.id);
-
-    if (e1) return res.status(500).json({ message: '조회 실패', detail: String(e1.message || e1) });
-
-    const ids = (bm || []).map(x => x.review_id).filter(Boolean);
-    if (ids.length === 0) return res.json([]);
-
-    // 2) 해당 리뷰들
-    const { data: reviews, error: e2 } = await supabase
-      .from('reviews')
-      .select('id, title, rating, restaurant_name, created_at')
-      .in('id', ids);
-
-    if (e2) return res.status(500).json({ message: '조회 실패', detail: String(e2.message || e2) });
-
-    const list = Array.isArray(reviews) ? reviews.slice() : [];
-
-    // 3) 정렬
-    if (sort === 'oldest') {
-      list.sort((a,b)=> new Date(a.created_at) - new Date(b.created_at));
-    } else if (sort === 'ratingdesc') {
-      list.sort((a,b)=> (b.rating||0)-(a.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
-    } else if (sort === 'ratingasc') {
-      list.sort((a,b)=> (a.rating||0)-(b.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
-    } else {
-      list.sort((a,b)=> new Date(b.created_at) - new Date(a.created_at)); // latest
-    }
-
-    res.json(list);
-  } catch (e) {
-    res.status(500).json({ message: '조회 실패', detail: String(e.message || e) });
-  }
-});
-
 // --- Reviews ---
 app.get('/api/reviews/recent', async (_req, res) => {
   const { data, error } = await supabase.from('reviews')
@@ -324,61 +277,6 @@ app.get('/api/reviews', async (req, res) => {
   const { data, error } = await q;
   if (error) return res.status(500).json({ message: '조회 실패' });
   res.json(data);
-});
-
-//---북마크
-app.get('/api/bookmarks', requireLogin, async (req, res) => {
-  try {
-    const sort = (req.query.sort || 'latest').toLowerCase();
-
-    // bookmarks 기준으로 조인해서 reviews의 주요 필드 가져오기
-    let q = supabase
-      .from('bookmarks')
-      .select(`
-        created_at,
-        reviews:reviews (
-          id, title, rating, restaurant_name, image_url, created_at
-        )
-      `)
-      .eq('user_id', req.user.id);
-
-    // 정렬: 기본은 리뷰의 created_at 최신순
-    switch (sort) {
-      case 'oldest':
-        q = q.order('reviews(created_at)', { ascending: true });
-        break;
-      case 'ratingdesc':
-        q = q.order('reviews(rating)', { ascending: false }).order('reviews(created_at)', { ascending: false });
-        break;
-      case 'ratingasc':
-        q = q.order('reviews(rating)', { ascending: true }).order('reviews(created_at)', { ascending: false });
-        break;
-      case 'addedlatest': // 북마크 추가일 최신순
-        q = q.order('created_at', { ascending: false });
-        break;
-      case 'addedoldest': // 북마크 추가일 오래된순
-        q = q.order('created_at', { ascending: true });
-        break;
-      case 'latest':
-      default:
-        q = q.order('reviews(created_at)', { ascending: false });
-        break;
-    }
-
-    const { data, error } = await q;
-    if (error) return res.status(500).json({ message: '조회 실패' });
-
-    // 프런트에서 기존 렌더와 동일하게 쓰기 위해 평탄화
-    const list = (data || []).map(row => ({
-      ...row.reviews,
-      // 북마크 추가일도 필요하면 같이 넘겨줌(옵션)
-      bookmark_created_at: row.created_at
-    })).filter(Boolean);
-
-    res.json(list);
-  } catch (e) {
-    res.status(500).json({ message: '조회 실패', detail: String(e.message || e) });
-  }
 });
 
 // 북마크 추가
@@ -473,47 +371,100 @@ app.get('/api/bookmarks/mine', requireLogin, async (req, res) => {
       .from('bookmarks')
       .select('review_id, created_at')
       .eq('user_id', req.user.id);
+    if (e1) return res.status(500).json({ message: '조회 실패(1)', detail: String(e1.message || e1) });
 
-    if (e1) {
-      console.error('[bookmarks] stage1 error:', e1);
-      return res.status(500).json({ message: '조회 실패(1)', detail: String(e1.message || e1) });
-    }
-
-    const ids = (rows || [])
-      .map(r => r.review_id)
-      .filter(Boolean); // NULL 제거
-
+    const ids = (rows || []).map(r => r.review_id).filter(Boolean);
     if (ids.length === 0) return res.json([]);
 
-    // 2) 리뷰들 조회 (카드에 필요한 컬럼만)
+    // 2) 리뷰들
     const { data: reviews, error: e2 } = await supabase
       .from('reviews')
       .select('id, title, rating, restaurant_name, image_url, created_at')
       .in('id', ids);
-
-    if (e2) {
-      console.error('[bookmarks] stage2 error:', e2);
-      return res.status(500).json({ message: '조회 실패(2)', detail: String(e2.message || e2) });
-    }
+    if (e2) return res.status(500).json({ message: '조회 실패(2)', detail: String(e2.message || e2) });
 
     // 3) 정렬
     const list = (reviews || []).slice();
     if (sort === 'oldest') {
-      list.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+      list.sort((a,b)=> new Date(a.created_at) - new Date(b.created_at));
     } else if (sort === 'ratingdesc') {
-      list.sort((a,b) => (b.rating||0) - (a.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
+      list.sort((a,b)=> (b.rating||0) - (a.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
     } else if (sort === 'ratingasc') {
-      list.sort((a,b) => (a.rating||0) - (b.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
-    } else { // latest
-      list.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+      list.sort((a,b)=> (a.rating||0) - (b.rating||0) || (new Date(b.created_at)-new Date(a.created_at)));
+    } else {
+      list.sort((a,b)=> new Date(b.created_at) - new Date(a.created_at)); // latest
     }
 
     res.json(list);
   } catch (e) {
-    console.error('[bookmarks] fatal:', e);
     res.status(500).json({ message: '조회 실패', detail: String(e.message || e) });
   }
 });
+
+// 상태/카운트 조회 (로그인 불필요)  GET /api/bookmarks/:reviewId
+app.get('/api/bookmarks/:reviewId', async (req, res) => {
+  try {
+    const reviewId = req.params.reviewId;
+
+    // count만 집계
+    const { count, error: eCount } = await supabase
+      .from('bookmarks')
+      .select('*', { count: 'exact', head: true })
+      .eq('review_id', reviewId);
+    if (eCount) throw eCount;
+
+    let bookmarked = false;
+    if (req.user) {
+      const { data: mine, error: eMine } = await supabase
+        .from('bookmarks')
+        .select('id')
+        .eq('user_id', req.user.id)
+        .eq('review_id', reviewId)
+        .maybeSingle();
+      if (eMine) throw eMine;
+      bookmarked = !!mine;
+    }
+
+    res.json({ count: count || 0, bookmarked });
+  } catch (err) {
+    res.status(500).json({ message: '북마크 상태 조회 실패', detail: String(err.message || err) });
+  }
+});
+
+// 추가  POST /api/bookmarks/:reviewId   (로그인 필요)
+app.post('/api/bookmarks/:reviewId', requireLogin, async (req, res) => {
+  try {
+    const reviewId = req.params.reviewId;
+    const { error } = await supabase
+      .from('bookmarks')
+      .insert([{ user_id: req.user.id, review_id: reviewId }]);
+
+    // 유니크 위반(이미 추가된 경우)도 성공으로 간주
+    if (error && !String(error.message||'').toLowerCase().includes('duplicate')) {
+      throw error;
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: '북마크 추가 실패', detail: String(err.message || err) });
+  }
+});
+
+// 해제  DELETE /api/bookmarks/:reviewId  (로그인 필요)
+app.delete('/api/bookmarks/:reviewId', requireLogin, async (req, res) => {
+  try {
+    const reviewId = req.params.reviewId;
+    const { error } = await supabase
+      .from('bookmarks')
+      .delete()
+      .eq('user_id', req.user.id)
+      .eq('review_id', reviewId);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: '북마크 해제 실패', detail: String(err.message || err) });
+  }
+});
+
 
 // server.js (/login)
 app.post('/login', async (req, res) => {

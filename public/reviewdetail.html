@@ -137,15 +137,20 @@
             if(!bookmarked){
               const r = await fetch(`/api/bookmarks/${review.id}`, { method:'POST', credentials:'include' });
               if(!r.ok) throw new Error('북마크 실패');
-              bookmarked = true;
-              bmBtn.textContent = '북마크 해제 ★';
             }else{
               const r = await fetch(`/api/bookmarks/${review.id}`, { method:'DELETE', credentials:'include' });
               if(!r.ok) throw new Error('해제 실패');
-              bookmarked = false;
-              bmBtn.textContent = '북마크 추가 ☆';
             }
+            // ✅ 토글 후 최신 상태 다시 조회해서 버튼 라벨 갱신
+            const s = await fetch(`/api/bookmarks/${review.id}`, { credentials:'include' }).then(r=>r.json());
+            bookmarked = !!s.bookmarked;
+            bmBtn.textContent = bookmarked ? `북마크 해제 ★ (${s.count||0})` : `북마크 추가 ☆ (${s.count||0})`;
           }catch(e){
+            if (e?.message?.includes('401')) {
+              alert('로그인이 필요합니다.');
+              location.href = 'login.html';
+              return;
+            }
             alert(e.message || '오류 발생');
           }
         });

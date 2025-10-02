@@ -133,38 +133,43 @@
           if (bmCnt)  bmCnt.textContent  = String(count ?? 0);
         }
 
-        let bookmarked = false;
-        let count = 0;
-        try {
-          const stateRes = await fetch(`/api/bookmarks/${encodeURIComponent(review.id)}`, { credentials:'include' });
-          if (stateRes.ok) {
-            const st = await stateRes.json();
-            bookmarked = !!st.bookmarked;
-            count = st.count || 0;
-            setBookmarkUI({bookmarked, count});
-          } else {
-            // 비로그인 등 이어도 count만 보여주고 동작은 시도하게 둘 수 있음
-            setBookmarkUI({bookmarked: false, count: 0});
-          }
-        } catch (_) {
-          setBookmarkUI({bookmarked: false, count: 0});
-        }
-
-        bmBtn.addEventListener('click', async () => {
+        // ✅ 버튼 DOM을 먼저 잡기
+        const bmBtn = document.getElementById('bookmarkBtn');
+        if (bmBtn) {
+          // 초기 상태/카운트 불러오기
+          let bookmarked = false;
+          let count = 0;
           try {
-            const url = `/api/bookmarks/${encodeURIComponent(review.id)}`;
-            const method = bookmarked ? 'DELETE' : 'POST';
-            const r = await fetch(url, { method, credentials:'include' });
-            if (r.status === 401) { alert('로그인이 필요합니다.'); location.href = 'login.html'; return; }
-            if (!r.ok) throw new Error('요청 실패');
-            const data = await r.json();          // 서버가 최신 count 내려줌
-            bookmarked = !!data.bookmarked;
-            count = data.count || 0;
-            setBookmarkUI({bookmarked, count});
-          } catch (e) {
-            alert(e.message || '오류 발생');
-          }
-        });
+            const stateRes = await fetch(`/api/bookmarks/${encodeURIComponent(review.id)}`, { credentials:'include' });
+            if (stateRes.ok) {
+              const st = await stateRes.json();
+              bookmarked = !!st.bookmarked;
+              count = st.count || 0;
+            }
+          } catch(_) { /* noop */ }
+          setBookmarkUI({ bookmarked, count });
+
+          // 클릭 토글
+          bmBtn.addEventListener('click', async () => {
+            try {
+              const method = bookmarked ? 'DELETE' : 'POST';
+              const r = await fetch(`/api/bookmarks/${encodeURIComponent(review.id)}`, {
+                method, credentials:'include'
+              });
+              if (r.status === 401) { alert('로그인이 필요합니다.'); location.href = 'login.html'; return; }
+              if (!r.ok) throw new Error('요청 실패');
+
+              // 🔁 서버 응답이 count/상태를 안 주면, GET으로 최신 상태 다시 조회
+              const s = await fetch(`/api/bookmarks/${encodeURIComponent(review.id)}`, { credentials:'include' })
+                                .then(x => x.json());
+              bookmarked = !!s.bookmarked;
+              count = s.count || 0;
+              setBookmarkUI({ bookmarked, count });
+            } catch (e) {
+              alert(e.message || '오류 발생');
+            }
+          });
+        }
 
         // 수정/삭제 버튼
         if(isOwner){

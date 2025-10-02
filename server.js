@@ -258,29 +258,57 @@ app.get('/api/reviews', async (req, res) => {
     if (foodcategory) q = q.eq('subcategory', sub);
   }
 
-  // 정렬
-  switch ((sort || 'latest').toLowerCase()) {
-    case 'oldest':
-      q = q.order('created_at', { ascending: true });
-      break;
-    case 'bookmarkdesc': // TODO: 북마크 많은순(미구현)
-    case 'bookmarkasc':  // TODO: 북마크 적은순(미구현)
-      // 북마크 테이블/컬럼 생기면 여기서 조인/카운트 정렬
-      q = q.order('created_at', { ascending: false });
-      break;
-    case 'latest':
-    default:
-      q = q.order('created_at', { ascending: false });
-      break;
+  // 기본 정렬(최신/오래된) — 북마크 정렬은 아래에서 JS로 처리할 예정
+  const sortKey = String(sort || 'latest').toLowerCase();
+  if (sortKey === 'oldest') {
+    q = q.order('created_at', { ascending: true });
+  } else {
+    q = q.order('created_at', { ascending: false });
   }
 
-  const { data, error } = await q;
-  if (error) return res.status(500).json({ message: '조회 실패' });
-  res.json(data);
+  const { data: list, error } = await q;
+  if (error) return res.status(500).json({ message: '조회 실패', detail: String(error.message || error) });
+
+  const reviews = Array.isArray(list) ? list.slice() : [];
+  if (reviews.length === 0) return res.json([]);
+
+  // 🔢 이 목록에 해당하는 리뷰들의 북마크 카운트 조회
+  const ids = reviews.map(r => r.id);
+  const { data: bmRows, error: e2 } = await supabase
+    .from('bookmarks')
+    .select('review_id')
+    .in('review_id', ids);
+
+  if (e2) return res.status(500).json({ message: '조회 실패', detail: String(e2.message || e2) });
+
+  // count 집계 (JS에서 그룹핑)
+  const countMap = {};
+  (bmRows || []).forEach(row => {
+    const k = row.review_id;
+    countMap[k] = (countMap[k] || 0) + 1;
+  });
+
+  // 각 리뷰에 bookmark_count 부착
+  reviews.forEach(r => { r.bookmark_count = countMap[r.id] || 0; });
+
+  // ⭐ 북마크 정렬 처리
+  if (sortKey === 'bookmarkdesc') {
+    reviews.sort((a, b) =>
+      (b.bookmark_count - a.bookmark_count) ||
+      (new Date(b.created_at) - new Date(a.created_at))
+    );
+  } else if (sortKey === 'bookmarkasc') {
+    reviews.sort((a, b) =>
+      (a.bookmark_count - b.bookmark_count) ||
+      (new Date(b.created_at) - new Date(a.created_at))
+    );
+  }
+  // latest/oldest는 위에서 이미 정렬됨
+
+  return res.json(reviews);
 });
 
 // ===== Bookmarks =====
-
 // GET /api/bookmarks/mine?sort=latest|oldest|ratingDesc|ratingAsc
 app.get('/api/bookmarks/mine', requireLogin, async (req, res) => {
   try {

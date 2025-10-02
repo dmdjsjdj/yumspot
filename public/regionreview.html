@@ -135,6 +135,7 @@
           <p class="rating">${stars}</p>
           <p>${review.restaurant_name ?? ''}</p>
           <p class="meta">작성일: ${fmtDate(review.created_at)}</p>
+          <p class="meta">북마크 ${review.bookmark_count ?? 0}</p>
         `;
         el.addEventListener('click', () => location.href = `reviewdetail.html?id=${review.id}`);
         grid.appendChild(el);

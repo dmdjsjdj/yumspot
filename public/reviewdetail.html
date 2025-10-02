@@ -100,7 +100,11 @@
           <div class="top">
             <h2>${review.title}</h2>
             <div>
-              <button class="btn" id="bookmarkBtn">북마크 ★</button>
+              <button class="btn" id="bookmarkBtn">
+                <span id="bmIcon">☆</span>
+                <span id="bmText">북마크</span>
+                (<span id="bmCnt">0</span>)
+              </button>
               ${isOwner ? `
                 <button class="btn" id="editBtn">수정</button>
                 <button class="btn" id="delBtn" style="background:#ef5350;">삭제</button>
@@ -120,37 +124,44 @@
           <div id="map" style="width:100%;height:300px;border-radius:8px;margin-top:10px;"></div>
         `;
 
-        // ⭐ 북마크 버튼 상태 반영
-        const bmBtn = document.getElementById('bookmarkBtn');
-        let bookmarked = false;
-        try{
-          const bmRes = await fetch(`/api/bookmarks/${review.id}`, { credentials:'include' });
-          if(bmRes.ok){
-            const bmData = await bmRes.json();
-            bookmarked = bmData.bookmarked;
-            bmBtn.textContent = bookmarked ? '북마크 해제 ★' : '북마크 추가 ☆';
-          }
-        }catch(_){}
+        function setBookmarkUI({bookmarked, count}) {
+          const bmIcon = document.getElementById('bmIcon');
+          const bmText = document.getElementById('bmText');
+          const bmCnt  = document.getElementById('bmCnt');
+          if (bmIcon) bmIcon.textContent = bookmarked ? '★' : '☆';
+          if (bmText) bmText.textContent = bookmarked ? '북마크 해제' : '북마크 추가';
+          if (bmCnt)  bmCnt.textContent  = String(count ?? 0);
+        }
 
-        bmBtn.addEventListener('click', async ()=>{
-          try{
-            if(!bookmarked){
-              const r = await fetch(`/api/bookmarks/${review.id}`, { method:'POST', credentials:'include' });
-              if(!r.ok) throw new Error('북마크 실패');
-            }else{
-              const r = await fetch(`/api/bookmarks/${review.id}`, { method:'DELETE', credentials:'include' });
-              if(!r.ok) throw new Error('해제 실패');
-            }
-            // ✅ 토글 후 최신 상태 다시 조회해서 버튼 라벨 갱신
-            const s = await fetch(`/api/bookmarks/${review.id}`, { credentials:'include' }).then(r=>r.json());
-            bookmarked = !!s.bookmarked;
-            bmBtn.textContent = bookmarked ? `북마크 해제 ★ (${s.count||0})` : `북마크 추가 ☆ (${s.count||0})`;
-          }catch(e){
-            if (e?.message?.includes('401')) {
-              alert('로그인이 필요합니다.');
-              location.href = 'login.html';
-              return;
-            }
+        let bookmarked = false;
+        let count = 0;
+        try {
+          const stateRes = await fetch(`/api/bookmarks/${encodeURIComponent(review.id)}`, { credentials:'include' });
+          if (stateRes.ok) {
+            const st = await stateRes.json();
+            bookmarked = !!st.bookmarked;
+            count = st.count || 0;
+            setBookmarkUI({bookmarked, count});
+          } else {
+            // 비로그인 등 이어도 count만 보여주고 동작은 시도하게 둘 수 있음
+            setBookmarkUI({bookmarked: false, count: 0});
+          }
+        } catch (_) {
+          setBookmarkUI({bookmarked: false, count: 0});
+        }
+
+        bmBtn.addEventListener('click', async () => {
+          try {
+            const url = `/api/bookmarks/${encodeURIComponent(review.id)}`;
+            const method = bookmarked ? 'DELETE' : 'POST';
+            const r = await fetch(url, { method, credentials:'include' });
+            if (r.status === 401) { alert('로그인이 필요합니다.'); location.href = 'login.html'; return; }
+            if (!r.ok) throw new Error('요청 실패');
+            const data = await r.json();          // 서버가 최신 count 내려줌
+            bookmarked = !!data.bookmarked;
+            count = data.count || 0;
+            setBookmarkUI({bookmarked, count});
+          } catch (e) {
             alert(e.message || '오류 발생');
           }
         });

@@ -279,87 +279,7 @@ app.get('/api/reviews', async (req, res) => {
   res.json(data);
 });
 
-// 북마크 추가
-app.post('/api/bookmarks/:id', requireLogin, async (req, res) => {
-  try {
-    const reviewId = req.params.id;
-    const { error } = await supabase
-      .from('bookmarks')
-      .insert([{ user_id: req.user.id, review_id: reviewId }]);
-    if (error && !error.message.includes('duplicate')) throw error; // 중복일 때는 무시
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ message: '북마크 추가 실패', detail: String(e.message || e) });
-  }
-});
-
-
-// 북마크 해제
-app.delete('/api/bookmarks/:id', requireLogin, async (req, res) => {
-  try {
-    const reviewId = req.params.id;
-    const { error } = await supabase
-      .from('bookmarks')
-      .delete()
-      .eq('user_id', req.user.id)
-      .eq('review_id', reviewId);
-    if (error) throw error;
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ message: '북마크 해제 실패', detail: String(e.message || e) });
-  }
-});
-
-// 특정 리뷰에 내가 북마크했는지 여부 확인
-app.get('/api/bookmarks/:id', requireLogin, async (req, res) => {
-  try {
-    const reviewId = req.params.id;
-    const { data, error } = await supabase
-      .from('bookmarks')
-      .select('id')
-      .eq('user_id', req.user.id)
-      .eq('review_id', reviewId)
-      .maybeSingle();
-    if (error) throw error;
-    res.json({ bookmarked: !!data });
-  } catch (e) {
-    res.status(500).json({ message: '조회 실패', detail: String(e.message || e) });
-  }
-});
-
-// 리뷰 상세 (소유자 여부 포함, 불필요한 노출 최소화)
-app.get('/api/reviews/:id', async (req, res) => {
-  try {
-    // 필요한 컬럼만 명시적으로 선택 (lat/lng, subcategory/subregion 포함)
-    const { data: review, error } = await supabase
-      .from('reviews')
-      .select(`
-        id, user_id,
-        title, restaurant_name, address,
-        rating, content, image_url,
-        foodcategory, subcategory,
-        regionnames, subregion,
-        created_at,
-        place_id, lat, lng
-      `)
-      .eq('id', req.params.id)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!review) return res.status(404).json({ message: '없음' });
-
-    // 소유자 판별
-    const isOwner = !!(req.user && req.user.id === review.user_id);
-
-    // 응답 페이로드 구성 (소유자가 아니면 user_id 숨김)
-    const payload = { ...review, isOwner };
-    if (!isOwner) delete payload.user_id;
-
-    return res.json(payload);
-  } catch (e) {
-    return res.status(500).json({ message: '조회 실패', detail: String(e.message || e) });
-  }
-});
+// ===== Bookmarks =====
 
 // GET /api/bookmarks/mine?sort=latest|oldest|ratingDesc|ratingAsc
 app.get('/api/bookmarks/mine', requireLogin, async (req, res) => {
@@ -398,6 +318,118 @@ app.get('/api/bookmarks/mine', requireLogin, async (req, res) => {
     res.json(list);
   } catch (e) {
     res.status(500).json({ message: '조회 실패', detail: String(e.message || e) });
+  }
+});
+
+// 상태/카운트 조회 (공개)  GET /api/bookmarks/:reviewId
+app.get('/api/bookmarks/:reviewId', async (req, res) => {
+  try {
+    const reviewId = req.params.reviewId;
+
+    const { count, error: eCount } = await supabase
+      .from('bookmarks')
+      .select('*', { count: 'exact', head: true })
+      .eq('review_id', reviewId);
+    if (eCount) throw eCount;
+
+    let bookmarked = false;
+    if (req.user) {
+      const { data: mine, error: eMine } = await supabase
+        .from('bookmarks')
+        .select('id')
+        .eq('user_id', req.user.id)
+        .eq('review_id', reviewId)
+        .maybeSingle();
+      if (eMine) throw eMine;
+      bookmarked = !!mine;
+    }
+
+    res.json({ count: count || 0, bookmarked });
+  } catch (err) {
+    res.status(500).json({ message: '북마크 상태 조회 실패', detail: String(err.message || err) });
+  }
+});
+
+// 추가  POST /api/bookmarks/:reviewId
+app.post('/api/bookmarks/:reviewId', requireLogin, async (req, res) => {
+  try {
+    const reviewId = req.params.reviewId;
+
+    // 삽입(중복은 성공으로 간주)
+    const { error: insErr } = await supabase
+      .from('bookmarks')
+      .insert([{ user_id: req.user.id, review_id: reviewId }]);
+    if (insErr && !String(insErr.message||'').toLowerCase().includes('duplicate')) {
+      throw insErr;
+    }
+
+    // 최신 카운트 반환
+    const { count } = await supabase
+      .from('bookmarks')
+      .select('*', { count: 'exact', head: true })
+      .eq('review_id', reviewId);
+
+    res.json({ ok: true, bookmarked: true, count: count || 0 });
+  } catch (err) {
+    res.status(500).json({ message: '북마크 추가 실패', detail: String(err.message || err) });
+  }
+});
+
+// 해제  DELETE /api/bookmarks/:reviewId
+app.delete('/api/bookmarks/:reviewId', requireLogin, async (req, res) => {
+  try {
+    const reviewId = req.params.reviewId;
+
+    const { error: delErr } = await supabase
+      .from('bookmarks')
+      .delete()
+      .eq('user_id', req.user.id)
+      .eq('review_id', reviewId);
+    if (delErr) throw delErr;
+
+    // 최신 카운트 반환
+    const { count } = await supabase
+      .from('bookmarks')
+      .select('*', { count: 'exact', head: true })
+      .eq('review_id', reviewId);
+
+    res.json({ ok: true, bookmarked: false, count: count || 0 });
+  } catch (err) {
+    res.status(500).json({ message: '북마크 해제 실패', detail: String(err.message || err) });
+  }
+});
+
+// 리뷰 상세 (소유자 여부 포함, 불필요한 노출 최소화)
+app.get('/api/reviews/:id', async (req, res) => {
+  try {
+    // 필요한 컬럼만 명시적으로 선택 (lat/lng, subcategory/subregion 포함)
+    const { data: review, error } = await supabase
+      .from('reviews')
+      .select(`
+        id, user_id,
+        title, restaurant_name, address,
+        rating, content, image_url,
+        foodcategory, subcategory,
+        regionnames, subregion,
+        created_at,
+        place_id, lat, lng
+      `)
+      .eq('id', req.params.id)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!review) return res.status(404).json({ message: '없음' });
+
+    // 소유자 판별
+    const isOwner = !!(req.user && req.user.id === review.user_id);
+
+    // 응답 페이로드 구성 (소유자가 아니면 user_id 숨김)
+    const payload = { ...review, isOwner };
+    if (!isOwner) delete payload.user_id;
+
+    return res.json(payload);
+  } catch (e) {
+    return res.status(500).json({ message: '조회 실패', detail: String(e.message || e) });
   }
 });
 

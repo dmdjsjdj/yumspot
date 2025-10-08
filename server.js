@@ -232,14 +232,44 @@ app.get('/api/reviews/mine', requireLogin, async (req, res) => {
   }
 });
 
-// --- Reviews ---
+// 최근 리뷰 3개 + 각 리뷰의 북마크 수 포함
 app.get('/api/reviews/recent', async (_req, res) => {
-  const { data, error } = await supabase.from('reviews')
-    .select('id, title, rating, foodcategory, restaurant_name, created_at')
-    .order('created_at', { ascending: false })
-    .limit(3);
-  if (error) return res.status(500).json({ message: '조회 실패' });
-  res.json(data);
+  try {
+    // 1) 최근 리뷰 3개
+    const { data: rows, error } = await supabase
+      .from('reviews')
+      .select('id, title, rating, foodcategory, restaurant_name, created_at')
+      .order('created_at', { ascending: false })
+      .limit(3);
+    if (error) throw error;
+
+    const reviews = Array.isArray(rows) ? rows.slice() : [];
+    if (reviews.length === 0) return res.json([]);
+
+    // 2) 해당 리뷰들에 대한 북마크 수 집계
+    const ids = reviews.map(r => r.id);
+    const { data: bmRows, error: e2 } = await supabase
+      .from('bookmarks')
+      .select('review_id')
+      .in('review_id', ids);
+    if (e2) throw e2;
+
+    const countMap = {};
+    (bmRows || []).forEach(r => {
+      countMap[r.review_id] = (countMap[r.review_id] || 0) + 1;
+    });
+
+    // 3) bookmark_count 부착
+    const withCounts = reviews.map(r => ({
+      ...r,
+      bookmark_count: countMap[r.id] || 0,
+    }));
+
+    res.json(withCounts);
+  } catch (err) {
+    console.error('[recent] error:', err);
+    res.status(500).json({ message: '조회 실패', detail: String(err.message || err) });
+  }
 });
 
 app.get('/api/reviews', async (req, res) => {

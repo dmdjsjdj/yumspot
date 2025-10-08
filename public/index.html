@@ -74,7 +74,7 @@
                     card.className = 'review-card';
 
                     const rating = Number(review.rating) || 0;
-                    const stars = '★'.repeat(review.rating) + '<span class="empty">' + '☆'.repeat(5-review.rating) + '</span>';
+                    const stars = '★'.repeat(rating) + '<span class="empty">' + '☆'.repeat(5-rating) + '</span>';
                     
                     card.innerHTML = `
                         <h3>${review.title}</h3>
@@ -82,6 +82,7 @@
                         <p>카테고리: ${review.foodcategory ?? '-'}</p>
                         <p>${review.restaurant_name ?? ''}</p>
                         <p class="meta">작성일: ${fmtDate(review.created_at)}</p>
+                        <p class="meta">북마크 ${review.bookmark_count ?? 0}</p>
                     `;
                     card.addEventListener('click',()=>location.href=`reviewdetail.html?id=${review.id}`);
                     row.appendChild(card);

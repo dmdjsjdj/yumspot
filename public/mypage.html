@@ -27,6 +27,15 @@
     }
     .meta p{ margin:8px 0; }
     .meta p, .meta button{ word-break: break-all; overflow-wrap:anywhere; }
+    .logout-row {
+      margin-top: 10px;      /* 위쪽 여백 */
+      text-align: left;      /* 버튼 왼쪽 정렬 (원하면 center로 변경 가능) */
+    }
+
+    .logout-row .btn {
+      display: inline-block; /* 버튼을 줄 안에서 깔끔하게 보이게 */
+      padding: 8px 14px;
+    }
   </style>
   <script src="/utils/categoryLists.js"></script>
 </head>
@@ -92,7 +101,9 @@
     document.getElementById('info').innerHTML = me ? `
       <p>이메일: ${me.email}</p>
       <p>닉네임: ${me.nickname}</p>
-      <button class="btn" id="logoutInline">로그아웃</button>
+      <div class="logout-row">
+        <button class="btn" id="logoutInline">로그아웃</button>
+      </div>
     ` : '<p>정보를 불러오지 못했습니다.</p>';
 
     document.getElementById('logoutInline')?.addEventListener('click', ()=>{

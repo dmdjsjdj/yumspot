@@ -609,7 +609,7 @@ app.put('/api/reviews/:id', requireLogin, async (req, res) => {
   // 소유자 확인 + 기존 데이터 조회(이전 이미지 URL 비교 위해)
   const { data: review, error: e1 } = await supabase
     .from('reviews')
-    .select('user_id, image_url')
+    .select('user_id, image_url, image_urls')
     .eq('id', id)
     .maybeSingle();
   if (e1 || !review) return res.status(404).json({ message: '없음' });

@@ -29,6 +29,21 @@
       border-radius: 8px;
       background: #f6f8fb;
     }
+
+    .gallery { position: relative; width: 100%; max-width: 720px; margin: 12px 0; }
+    .gallery-viewport { overflow: hidden; border-radius: 8px; background:#f6f8fb; }
+    .gallery-track { display: flex; transition: transform .3s ease; }
+    .gallery-track img { width: 100%; height: 460px; object-fit: contain; flex: 0 0 100%; }
+
+    .gallery-nav { position:absolute; top:50%; transform:translateY(-50%); 
+      background:rgba(0,0,0,.4); color:#fff; border:none; width:38px; height:38px; 
+      border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    .gallery-prev { left:8px; }
+    .gallery-next { right:8px; }
+    .gallery-dots { display:flex; gap:6px; justify-content:center; margin-top:8px; }
+    .gallery-dot { width:8px; height:8px; border-radius:50%; background:#cfd8dc; cursor:pointer; }
+    .gallery-dot.active { background:#607d8b; }
+
   </style>
   <script src="/utils/categoryLists.js"></script>
 </head>
@@ -96,6 +111,11 @@
         const stars = '★'.repeat(Number(review.rating)||0) +
                       '<span class="empty">' + '☆'.repeat(5-(Number(review.rating)||0)) + '</span>';
 
+        // 이미지 배열: 여러장 우선, 없으면 단일, 둘 다 없으면 빈 배열
+        const imgs = (Array.isArray(review.image_urls) && review.image_urls.length > 0)
+          ? review.image_urls
+          : (review.image_url ? [review.image_url] : []);
+
         el.innerHTML = `
           <div class="top">
             <h2>${review.title}</h2>
@@ -119,10 +139,68 @@
           <p class="meta">주소: <span id="addr">${review.address ?? ''}</span>
             <button class="btn" style="padding:6px 10px;" onclick="copyAddr()">복사</button>
           </p>
-          ${review.image_url ? `<img class="detail-image" src="${review.image_url}" alt="review image">` : ''}
+
+          ${
+            imgs.length > 0
+              ? `
+                <div class="gallery" id="gallery">
+                  <div class="gallery-viewport">
+                    <div class="gallery-track">
+                      ${imgs.map(u => `<img src="${u}" alt="review image">`).join('')}
+                    </div>
+                  </div>
+                  ${imgs.length > 1 ? `
+                    <button class="gallery-nav gallery-prev" aria-label="이전">‹</button>
+                    <button class="gallery-nav gallery-next" aria-label="다음">›</button>
+                    <div class="gallery-dots">
+                      ${imgs.map((_,i)=>`<div class="gallery-dot ${i===0?'active':''}" data-idx="${i}"></div>`).join('')}
+                    </div>
+                  ` : ``}
+                </div>
+              ` : ``
+          }
+
           <p>${(review.content||'').replace(/\n/g,'<br>')}</p>
           <div id="map" style="width:100%;height:300px;border-radius:8px;margin-top:10px;"></div>
         `;
+
+        // 갤러리(슬라이더) 초기화
+        (function initGallery(){
+          const root = document.getElementById('gallery');
+          if (!root) return; // 이미지 없음
+
+          const track = root.querySelector('.gallery-track');
+          const prev  = root.querySelector('.gallery-prev');
+          const next  = root.querySelector('.gallery-next');
+          const dots  = [...root.querySelectorAll('.gallery-dot')];
+
+          let idx = 0;
+          const total = track.children.length;
+
+          function go(i){
+            idx = Math.max(0, Math.min(total-1, i));
+            track.style.transform = `translateX(-${idx*100}%)`;
+            dots.forEach((d,di)=> d.classList.toggle('active', di===idx));
+          }
+
+          prev?.addEventListener('click', (e)=>{ e.stopPropagation(); go(idx-1); });
+          next?.addEventListener('click', (e)=>{ e.stopPropagation(); go(idx+1); });
+          dots.forEach(d => d.addEventListener('click', (e)=> {
+            e.stopPropagation(); go(Number(d.dataset.idx)||0);
+          }));
+
+          // 스와이프(모바일)
+          let sx = 0, dx = 0;
+          track.addEventListener('touchstart', e=> { sx = e.touches[0].clientX; dx = 0; }, {passive:true});
+          track.addEventListener('touchmove',  e=> { dx = e.touches[0].clientX - sx; }, {passive:true});
+          track.addEventListener('touchend',   ()=> {
+            if (Math.abs(dx) > 40) { go(idx + (dx<0 ? 1 : -1)); }
+            sx = dx = 0;
+          });
+
+          // 첫 슬라이드
+          go(0);
+        })();
 
         function setBookmarkUI({bookmarked, count}) {
           const bmIcon = document.getElementById('bmIcon');
@@ -199,7 +277,6 @@
             window.addEventListener('load', () => kakao.maps.load(run), { once:true });
           }
         }
-
       }catch(e){
         console.error('[detail] 실패:', e);
         el.innerHTML = '<p>리뷰를 불러오지 못했습니다.</p>';

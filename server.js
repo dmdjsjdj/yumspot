@@ -39,6 +39,13 @@ function setAuthCookie(res, payload) {
   });
 }
 
+//관리자
+function requireAdmin(req, res, next) {
+  if (!req.user) return res.status(401).json({ message: '로그인이 필요합니다.' });
+  if (req.user.role !== 'admin') return res.status(403).json({ message: '관리자만 접근 가능합니다.' });
+  next();
+}
+
 // 공개 URL → 파일 경로 추출
 function pathFromPublicUrl(publicUrl) {
   const REVIEW_BUCKET = 'review-images';
@@ -182,7 +189,7 @@ app.get('/check-auth', (req, res) => {
 
 app.get('/api/me', requireLogin, async (req, res) => {
   const { data, error } = await supabase.from('users')
-    .select('id, email, nickname').eq('id', req.user.id).single();
+    .select('id, email, nickname, role').eq('id', req.user.id).single();
   if (error) return res.status(500).json({ message: '조회 실패' });
   res.json(data);
 });
@@ -192,7 +199,7 @@ app.put('/api/me', requireLogin, async (req, res) => {
   const { error } = await supabase.from('users').update({ nickname }).eq('id', req.user.id);
   if (error) return res.status(500).json({ message: '수정 실패' });
   // 필요한 필드만 재서명
-  setAuthCookie(res, { id: req.user.id, email: req.user.email, nickname });
+  setAuthCookie(res, { id: req.user.id, email: req.user.email, nickname, role: req.user.role || 'user' });
   res.json({ ok: true });
 });
 
@@ -239,6 +246,7 @@ app.get('/api/reviews/recent', async (_req, res) => {
     const { data: rows, error } = await supabase
       .from('reviews')
       .select('id, title, rating, foodcategory, restaurant_name, created_at')
+      .or('hidden.is.false,hidden.is.null')
       .order('created_at', { ascending: false })
       .limit(3);
     if (error) throw error;
@@ -277,6 +285,11 @@ app.get('/api/reviews', async (req, res) => {
 
   let q = supabase.from('reviews')
     .select('id, title, rating, foodcategory, subcategory, regionnames, subregion, restaurant_name, created_at');
+
+  if (!req.user || req.user.role !== 'admin') {
+    // hidden이 false 또는 null인 것만
+    q = q.or('hidden.is.false,hidden.is.null');
+  }
 
   // 대분류 필터
   if (region) q = q.eq('regionnames', region);
@@ -433,6 +446,108 @@ app.post('/api/bookmarks/:reviewId', requireLogin, async (req, res) => {
   }
 });
 
+// POST /api/reports/:reviewId  (신고 제출)
+app.post('/api/reports/:reviewId', requireLogin, async (req, res) => {
+  try {
+    const reviewId = req.params.reviewId;
+    const reason = (req.body?.reason || '').slice(0, 500);
+
+    // 중복 신고 방지 (unique index가 있지만 서버에서도 확인)
+    const { data: exists, error: e1 } = await supabase
+      .from('reports')
+      .select('id')
+      .eq('reporter_id', req.user.id)
+      .eq('review_id', reviewId)
+      .maybeSingle();
+    if (e1) throw e1;
+    if (exists) return res.json({ ok: true, duplicated: true });
+
+    const { error: e2 } = await supabase
+      .from('reports')
+      .insert([{ review_id: reviewId, reporter_id: req.user.id, reason }]);
+    if (e2) throw e2;
+
+    res.json({ ok: true, duplicated: false });
+  } catch (err) {
+    res.status(500).json({ message: '신고 실패', detail: String(err.message || err) });
+  }
+});
+
+// GET /api/admin/reports  (신고 목록)
+app.get('/api/admin/reports', requireAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('reports')
+      .select(`
+        id, review_id, reporter_id, reason, created_at,
+        reviews!inner(id, title, restaurant_name, hidden),
+        users:reporter_id (id, email, nickname)
+      `)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ message: '신고 목록 조회 실패', detail: String(e.message || e) });
+  }
+});
+
+// GET /api/reports/:reviewId/status  (신고 상태/카운트 조회)
+app.get('/api/reports/:reviewId/status', async (req, res) => {
+  try {
+    const reviewId = req.params.reviewId;
+
+    // 총 신고 수
+    const { count, error: e1 } = await supabase
+      .from('reports')
+      .select('*', { count: 'exact', head: true })
+      .eq('review_id', reviewId);
+    if (e1) throw e1;
+
+    // 내가 이미 신고했는지
+    let reported = false;
+    if (req.user) {
+      const { data: me, error: e2 } = await supabase
+        .from('reports')
+        .select('id')
+        .eq('review_id', reviewId)
+        .eq('reporter_id', req.user.id) // ← reporter_id 쓰고 있으므로 여기도 동일
+        .maybeSingle();
+      if (e2) throw e2;
+      reported = !!me;
+    }
+
+    return res.json({ count: count || 0, reported });
+  } catch (err) {
+    return res.status(500).json({ message: '신고 상태 조회 실패', detail: String(err.message || err) });
+  }
+});
+
+// POST /api/admin/reviews/:id/hide  { hidden: true|false }
+app.post('/api/admin/reviews/:id/hide', requireAdmin, async (req, res) => {
+  try {
+    const hidden = !!req.body?.hidden;
+    const { error } = await supabase
+      .from('reviews')
+      .update({ hidden })
+      .eq('id', req.params.id);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ message: '숨김 처리 실패', detail: String(e.message || e) });
+  }
+});
+
+// (옵션) 신고 해제/삭제
+app.delete('/api/admin/reports/:id', requireAdmin, async (req, res) => {
+  try {
+    const { error } = await supabase.from('reports').delete().eq('id', req.params.id);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ message: '신고 삭제 실패', detail: String(e.message || e) });
+  }
+});
+
 // 해제  DELETE /api/bookmarks/:reviewId
 app.delete('/api/bookmarks/:reviewId', requireLogin, async (req, res) => {
   try {
@@ -469,14 +584,16 @@ app.get('/api/reviews/:id', async (req, res) => {
         rating, content, image_url, image_urls,
         foodcategory, subcategory,
         regionnames, subregion,
-        created_at,
+        created_at, hidden,
         place_id, lat, lng
       `)
       .eq('id', req.params.id)
       .maybeSingle();
 
     if (error) throw error;
-    if (!review) return res.status(404).json({ message: '없음' });
+    if (review.hidden && (!req.user || (req.user.role !== 'admin' && req.user.id !== review.user_id))) {
+      return res.status(404).json({ message: '없음' });
+    }
 
     // 소유자 판별
     const isOwner = !!(req.user && req.user.id === review.user_id);
@@ -491,71 +608,6 @@ app.get('/api/reviews/:id', async (req, res) => {
   }
 });
 
-// 상태/카운트 조회 (로그인 불필요)  GET /api/bookmarks/:reviewId
-app.get('/api/bookmarks/:reviewId', async (req, res) => {
-  try {
-    const reviewId = req.params.reviewId;
-
-    // count만 집계
-    const { count, error: eCount } = await supabase
-      .from('bookmarks')
-      .select('*', { count: 'exact', head: true })
-      .eq('review_id', reviewId);
-    if (eCount) throw eCount;
-
-    let bookmarked = false;
-    if (req.user) {
-      const { data: mine, error: eMine } = await supabase
-        .from('bookmarks')
-        .select('id')
-        .eq('user_id', req.user.id)
-        .eq('review_id', reviewId)
-        .maybeSingle();
-      if (eMine) throw eMine;
-      bookmarked = !!mine;
-    }
-
-    res.json({ count: count || 0, bookmarked });
-  } catch (err) {
-    res.status(500).json({ message: '북마크 상태 조회 실패', detail: String(err.message || err) });
-  }
-});
-
-// 추가  POST /api/bookmarks/:reviewId   (로그인 필요)
-app.post('/api/bookmarks/:reviewId', requireLogin, async (req, res) => {
-  try {
-    const reviewId = req.params.reviewId;
-    const { error } = await supabase
-      .from('bookmarks')
-      .insert([{ user_id: req.user.id, review_id: reviewId }]);
-
-    // 유니크 위반(이미 추가된 경우)도 성공으로 간주
-    if (error && !String(error.message||'').toLowerCase().includes('duplicate')) {
-      throw error;
-    }
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(500).json({ message: '북마크 추가 실패', detail: String(err.message || err) });
-  }
-});
-
-// 해제  DELETE /api/bookmarks/:reviewId  (로그인 필요)
-app.delete('/api/bookmarks/:reviewId', requireLogin, async (req, res) => {
-  try {
-    const reviewId = req.params.reviewId;
-    const { error } = await supabase
-      .from('bookmarks')
-      .delete()
-      .eq('user_id', req.user.id)
-      .eq('review_id', reviewId);
-    if (error) throw error;
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(500).json({ message: '북마크 해제 실패', detail: String(err.message || err) });
-  }
-});
-
-
 // server.js (/login)
 app.post('/login', async (req, res) => {
   try {
@@ -563,14 +615,14 @@ app.post('/login', async (req, res) => {
     if (!email || !password) return res.status(400).json({ message: '필수 항목 누락' });
 
     const { data: user, error } = await supabase
-      .from('users').select('id, email, nickname, password_hash').eq('email', email).maybeSingle();
+      .from('users').select('id, email, nickname, password_hash, role').eq('email', email).maybeSingle();
     if (error) throw error;
     if (!user) return res.status(401).json({ message: '이메일 또는 비밀번호가 틀립니다.' });
 
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ message: '이메일 또는 비밀번호가 틀립니다.' });
 
-    setAuthCookie(res, { id: user.id, email: user.email, nickname: user.nickname });
+    setAuthCookie(res, { id: user.id, email: user.email, nickname: user.nickname, role: user.role || 'user' });
 
     res.json({ ok: true });
   } catch (err) {

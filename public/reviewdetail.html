@@ -125,6 +125,7 @@
                 <span id="bmText">북마크</span>
                 (<span id="bmCnt">0</span>)
               </button>
+              <button class="btn" id="reportBtn" style="background:#ef9a9a;">🚩 신고</button>
               ${isOwner ? `
                 <button class="btn" id="editBtn">수정</button>
                 <button class="btn" id="delBtn" style="background:#ef5350;">삭제</button>
@@ -163,6 +164,64 @@
           <p>${(review.content||'').replace(/\n/g,'<br>')}</p>
           <div id="map" style="width:100%;height:300px;border-radius:8px;margin-top:10px;"></div>
         `;
+
+        const reportBtn = document.getElementById('reportBtn');
+
+        // 버튼 UI 업데이트
+        function setReportUI({ reported, count }) {
+          if (!reportBtn) return;
+          if (reported) {
+            reportBtn.textContent = `🚩 신고됨 (${count || 0})`;
+            reportBtn.disabled = true;
+            reportBtn.style.opacity = '0.7';
+            reportBtn.style.cursor = 'not-allowed';
+          } else {
+            reportBtn.textContent = `🚩 신고 (${count || 0})`;
+            reportBtn.disabled = false;
+            reportBtn.style.opacity = '1';
+            reportBtn.style.cursor = 'pointer';
+          }
+        }
+
+        // 초기 상태 조회
+        (async () => {
+          try {
+            const s = await fetch(`/api/reports/${encodeURIComponent(id)}/status`, { credentials:'include' });
+            if (s.ok) {
+              const data = await s.json();
+              setReportUI({ reported: !!data.reported, count: data.count || 0 });
+            } else {
+              setReportUI({ reported: false, count: 0 });
+            }
+          } catch {
+            setReportUI({ reported: false, count: 0 });
+          }
+        })();
+
+        // 클릭 이벤트
+        reportBtn?.addEventListener('click', async () => {
+          const reason = prompt('신고 사유를 입력해주세요 (예: 부적절한 내용, 허위정보 등)');
+          if (!reason || reason.trim().length < 3) {
+            return alert('신고 사유를 3자 이상 입력해주세요.');
+          }
+          try {
+            const r = await fetch(`/api/reports/${encodeURIComponent(id)}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ reason })
+            });
+            const data = await r.json();
+            if (r.status === 401) { alert('로그인이 필요합니다.'); location.href = 'login.html'; return; }
+            if (!r.ok) throw new Error(data.message || '신고 실패');
+
+            // 서버가 already/count를 내려줌
+            alert(data.message || (data.already ? '이미 신고하셨습니다.' : '신고가 접수되었습니다.'));
+            setReportUI({ reported: true, count: data.count || 0 }); // 신고 후엔 무조건 신고됨으로 처리
+          } catch (e) {
+            alert(e.message || '신고 처리 중 오류가 발생했습니다.');
+          }
+        });
 
         // 갤러리(슬라이더) 초기화
         (function initGallery(){

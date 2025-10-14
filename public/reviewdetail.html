@@ -171,12 +171,12 @@
         function setReportUI({ reported, count }) {
           if (!reportBtn) return;
           if (reported) {
-            reportBtn.textContent = `🚩 신고됨 (${count || 0})`;
+            reportBtn.textContent = `🚩 신고됨`;
             reportBtn.disabled = true;
             reportBtn.style.opacity = '0.7';
             reportBtn.style.cursor = 'not-allowed';
           } else {
-            reportBtn.textContent = `🚩 신고 (${count || 0})`;
+            reportBtn.textContent = `🚩 신고`;
             reportBtn.disabled = false;
             reportBtn.style.opacity = '1';
             reportBtn.style.cursor = 'pointer';

@@ -171,6 +171,27 @@
       });
   })();
   </script>
+  <script>
+  (async function addAdminLink(){
+    try {
+      const meRes = await fetch('/api/me', { credentials: 'include' });
+      if (!meRes.ok) return;                 // 비로그인/오류면 패스
+      const me = await meRes.json();
+      if (me?.role === 'admin') {
+        const center = document.querySelector('.center-links');
+        // 중복 추가 방지
+        if (center && !center.querySelector('a[href="admin-reports.html"]')) {
+          const a = document.createElement('a');
+          a.href = 'admin-reports.html';
+          a.textContent = '관리자';
+          center.appendChild(a);
+        }
+      }
+    } catch (e) {
+      console.warn('admin link error:', e);
+    }
+  })();
+  </script>
 
 </body>
 </html>

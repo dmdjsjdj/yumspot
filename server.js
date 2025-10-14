@@ -476,16 +476,45 @@ app.post('/api/reports/:reviewId', requireLogin, async (req, res) => {
 // GET /api/admin/reports  (신고 목록)
 app.get('/api/admin/reports', requireAdmin, async (req, res) => {
   try {
-    const { data, error } = await supabase
+    // 1) 신고 원본 리스트
+    const { data: reports, error: e1 } = await supabase
       .from('reports')
-      .select(`
-        id, review_id, reporter_id, reason, created_at,
-        reviews!inner(id, title, restaurant_name, hidden),
-        users:reporter_id (id, email, nickname)
-      `)
+      .select('id, review_id, reporter_id, reason, created_at')
       .order('created_at', { ascending: false });
-    if (error) throw error;
-    res.json(data);
+    if (e1) throw e1;
+
+    if (!reports || reports.length === 0) return res.json([]);
+
+    // 2) 관련 리뷰/유저 한번에 조회
+    const reviewIds = [...new Set(reports.map(r => r.review_id).filter(Boolean))];
+    const userIds   = [...new Set(reports.map(r => r.reporter_id).filter(Boolean))];
+
+    const [{ data: reviews, error: e2 }, { data: users, error: e3 }] = await Promise.all([
+      supabase.from('reviews')
+        .select('id, title, restaurant_name, hidden')
+        .in('id', reviewIds),
+      supabase.from('users')
+        .select('id, email, nickname')
+        .in('id', userIds),
+    ]);
+    if (e2) throw e2;
+    if (e3) throw e3;
+
+    // 3) 매핑
+    const reviewMap = new Map((reviews || []).map(r => [r.id, r]));
+    const userMap   = new Map((users   || []).map(u => [u.id, u]));
+
+    const rows = reports.map(r => ({
+      id: r.id,
+      review_id: r.review_id,
+      reporter_id: r.reporter_id,
+      reason: r.reason,
+      created_at: r.created_at,
+      reviews: reviewMap.get(r.review_id) || null,
+      users: userMap.get(r.reporter_id) || null,
+    }));
+
+    res.json(rows);
   } catch (e) {
     res.status(500).json({ message: '신고 목록 조회 실패', detail: String(e.message || e) });
   }

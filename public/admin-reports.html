@@ -32,6 +32,22 @@
 </div>
 
 <script>
+async function guardAdmin(){
+  const r = await fetch('/api/me', { credentials: 'include' });
+  if (r.status !== 200) { alert('로그인이 필요합니다.'); location.href='login.html'; return false; }
+  const me = await r.json();
+  if (me?.role !== 'admin') { alert('관리자만 접근 가능합니다.'); location.href='/'; return false; }
+  return true;
+}
+
+(async () => {
+  if (await guardAdmin()) {
+    load();   // ← 기존에 있던 신고목록 로드 함수
+  }
+})();
+</script>
+
+<script>
 async function load(){
   const tb = document.querySelector('#tbl tbody');
   tb.innerHTML = '<tr><td colspan="5">불러오는 중...</td></tr>';

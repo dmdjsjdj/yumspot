@@ -240,7 +240,7 @@ app.get('/api/reviews/mine', requireLogin, async (req, res) => {
 });
 
 // 최근 리뷰 3개 + 각 리뷰의 북마크 수 포함
-app.get('/api/reviews/recent', async (_req, res) => {
+app.get('/api/reviews/recent', async (req, res) => {
   try {
     let q = supabase
       .from('reviews')

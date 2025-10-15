@@ -243,12 +243,19 @@ app.get('/api/reviews/mine', requireLogin, async (req, res) => {
 app.get('/api/reviews/recent', async (_req, res) => {
   try {
     // 1) 최근 리뷰 3개
-    const { data: rows, error } = await supabase
+    let q = supabase
       .from('reviews')
       .select('id, title, rating, foodcategory, restaurant_name, created_at')
       .or('hidden.is.false,hidden.is.null')
       .order('created_at', { ascending: false })
       .limit(3);
+
+    // ✅ 관리자만 숨김글 포함해서 보이도록: 관리자 아닐 때만 필터
+    if (!req.user || req.user.role !== 'admin') {
+      q = q.or('hidden.is.false,hidden.is.null');
+    }
+
+    const { data: rows, error } = await q;
     if (error) throw error;
 
     const reviews = Array.isArray(rows) ? rows.slice() : [];

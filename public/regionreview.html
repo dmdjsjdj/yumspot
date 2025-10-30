@@ -55,10 +55,19 @@
         @media (max-width: 840px){
         .footer-inner{ grid-template-columns:1fr; }
         }
+
+        html, body { height: 100%; }           /* 전체 높이 확보 */
+        body {
+        min-height: 100vh;                   /* 뷰포트 꽉 채우기 */
+        display: flex;
+        flex-direction: column;
+        }
+        .content { flex: 1; } 
   </style>
   <!-- 전역 카테고리 로드 -->
   <script src="/utils/categoryLists.js"></script>
 </head>
+
 <body>
   <div class="header"><a href="/">YumSpot - 맛집을 찾아보자!</a></div>
   <div class="navbar">

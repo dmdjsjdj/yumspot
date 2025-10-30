@@ -71,6 +71,14 @@
         box-shadow: 0 4px 16px rgba(0,0,0,.08);
         backdrop-filter: saturate(140%) blur(2px);
         }
+
+        html, body { height: 100%; }           /* 전체 높이 확보 */
+        body {
+        min-height: 100vh;                   /* 뷰포트 꽉 채우기 */
+        display: flex;
+        flex-direction: column;
+        }
+        .content { flex: 1; }   
     </style>
     <script src="/utils/categoryLists.js"></script>
 </head>
@@ -91,12 +99,12 @@
         </div>
     </div>
 
-    <div class="reviews">
-        <h2>최근 리뷰</h2>
-        <div id="reviewRow" class="review-row"></div>
-    </div>
-
-
+    <main class="content">
+        <div class="reviews">
+            <h2>최근 리뷰</h2>
+            <div id="reviewRow" class="review-row"></div>
+        </div>
+    </main>
 
     <script>
         // 날짜 포맷 헬퍼

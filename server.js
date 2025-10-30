@@ -248,9 +248,9 @@ app.get('/api/reviews/recent', async (req, res) => {
       .order('created_at', { ascending: false })
       .limit(3);
 
-    // 2) ✅ 관리자 아닐 때만 숨김 제외
+    // 관리자만 숨김글 포함. 그 외는 hidden !== true (false 또는 null 포함)
     if (!req.user || req.user.role !== 'admin') {
-      q = q.or('hidden.is.false,hidden.is.null');
+      q = q.not('hidden', 'is', true);
     }
 
     // 3) 쿼리 실행
@@ -293,8 +293,7 @@ app.get('/api/reviews', async (req, res) => {
     .select('id, title, rating, foodcategory, subcategory, regionnames, subregion, restaurant_name, created_at');
 
   if (!req.user || req.user.role !== 'admin') {
-    // hidden이 false 또는 null인 것만
-    q = q.or('hidden.is.false,hidden.is.null');
+    q = q.not('hidden', 'is', true);
   }
 
   // 대분류 필터

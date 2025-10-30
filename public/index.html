@@ -23,7 +23,7 @@
 
         /* Footer */
         .app-footer{
-        margin-top:40px; background:#0F2E6B; color:#EAF4FF;
+        margin-top:40px; background:#6f96e4; color:#EAF4FF;
         }
         .app-footer a{ color:#EAF4FF; text-decoration:none; }
         .app-footer a:hover{ text-decoration:underline; }
@@ -37,7 +37,7 @@
         .brand-mark{
         width:36px; height:36px; border-radius:10px;
         display:grid; place-items:center;
-        background:#90CAF9; color:#0F2E6B; font-weight:900;
+        background:#90CAF9; color:#6f96e4; font-weight:900;
         }
         .brand-name{ font-weight:800; letter-spacing:.2px; }
         .brand-desc{ color:#CFE3FF; font-size:13px; margin-top:4px; }
@@ -112,7 +112,11 @@
             row.innerHTML = '';
             try {
                 const res = await fetch('/api/reviews/recent',  { credentials: 'include' });
-                if (!res.ok) throw new Error("리뷰를 불러올 수 없음");
+                if (!res.ok) {
+                const errJson = await res.json().catch(()=> ({}));
+                console.error('recent failed:', res.status, errJson);
+                throw new Error('리뷰를 불러올 수 없음');
+                }
 
                 const reviews = await res.json();
                 if (!reviews || reviews.length === 0) {

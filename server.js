@@ -279,10 +279,10 @@ app.get('/api/reviews/recent', async (req, res) => {
       bookmark_count: countMap[r.id] || 0,
     }));
 
-    res.json(withCounts);
+    return res.json(withCounts);
   } catch (err) {
     console.error('[recent] error:', err);
-    res.status(500).json({ message: '조회 실패', detail: String(err.message || err) });
+    return res.status(500).json({ message: '조회 실패', detail: String(err?.message || err) });
   }
 });
 

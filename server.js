@@ -244,58 +244,36 @@ app.get('/api/reviews/recent', async (req, res) => {
   try {
     let q = supabase
       .from('reviews')
-      .select('id, title, rating, foodcategory, restaurant_name, created_at')
+      .select('id, title, rating, foodcategory, restaurant_name, created_at, hidden')
       .order('created_at', { ascending: false })
       .limit(3);
 
-    // 관리자만 숨김글 포함 (관리자 아닌 경우 hidden !== true 만)
-    if (!req.user || req.user.role !== 'admin') {
-      q = q.not('hidden', 'is', true);
-    }
+    // 관리자만 숨김 포함
+    if (!req.user || req.user.role !== 'admin') q = q.not('hidden', 'is', true);
 
     const { data: rows, error: e1 } = await q;
-    if (e1) {
-      console.error('[recent] step1 reviews error:', e1);
-      throw e1;
-    }
+    if (e1) throw e1;
 
     const reviews = Array.isArray(rows) ? rows : [];
     if (reviews.length === 0) return res.json([]);
 
-    // --- 북마크 집계는 "부분 실패 허용" ---
+    // 북마크 집계 실패해도 계속 진행
     let countMap = {};
     try {
       const ids = reviews.map(r => r.id);
       const { data: bmRows, error: e2 } = await supabase
-        .from('bookmarks')
-        .select('review_id')
-        .in('review_id', ids);
-
+        .from('bookmarks').select('review_id').in('review_id', ids);
       if (e2) throw e2;
-
-      (bmRows || []).forEach(r => {
-        countMap[r.review_id] = (countMap[r.review_id] || 0) + 1;
-      });
+      (bmRows || []).forEach(r => { countMap[r.review_id] = (countMap[r.review_id] || 0) + 1; });
     } catch (e) {
-      console.error('[recent] step2 bookmarks error (continue with zeros):', e);
-      // 북마크 집계 실패해도 리뷰 자체는 반환
-      countMap = {};
+      console.error('[recent] bookmark count failed (continue):', e);
     }
 
-    const withCounts = reviews.map(r => ({
-      ...r,
-      bookmark_count: countMap[r.id] || 0,
-    }));
-
-    return res.json(withCounts);
+    res.json(reviews.map(r => ({ ...r, bookmark_count: countMap[r.id] || 0 })));
   } catch (err) {
-    // 여기서 환경변수 유무까지 같이 로깅
-    console.error('[recent] fatal:', err, {
-      SUPABASE_URL: !!process.env.SUPABASE_URL,
-      SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
-      NODE_ENV: process.env.NODE_ENV
-    });
-    return res.status(500).json({ message: '조회 실패', detail: String(err?.message || err) });
+    console.error('[recent] fatal:', err);
+    // 클라이언트가 “터지지 않게” 형태 통일
+    res.status(500).json({ message: '조회 실패', detail: String(err?.message || err) });
   }
 });
 
@@ -762,3 +740,13 @@ app.delete('/api/reviews/:id', requireLogin, async (req, res) => {
 app.listen(PORT, () => console.log(`Server running http://localhost:${PORT}`));
 
 app.get('/healthz', (_req, res) => res.type('text').send('ok'));
+
+app.get('/__db_ping', async (_req, res) => {
+  try {
+    const { data, error } = await supabase.from('reviews').select('id').limit(1);
+    if (error) throw error;
+    res.json({ ok: true, rowCount: (data || []).length });
+  } catch (e) {
+    res.status(500).json({ ok: false, err: String(e?.message || e) });
+  }
+});

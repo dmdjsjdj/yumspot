@@ -20,6 +20,41 @@
     .rating { letter-spacing:1px; }
     .empty { opacity:.4; }
     .meta { color:#555; font-size:12px; }
+
+        /* Footer */
+        .app-footer{
+        margin-top:40px; background:#76b2e4; color:#EAF4FF;
+        }
+        .app-footer a{ color:#EAF4FF; text-decoration:none; }
+        .app-footer a:hover{ text-decoration:underline; }
+
+        .footer-inner{
+        max-width: 1100px; margin:0 auto;
+        display:grid; grid-template-columns: 2fr 1fr 1fr;
+        gap:16px; padding:28px 16px;
+        }
+        .footer-brand{ display:flex; gap:12px; align-items:flex-start; }
+        .brand-mark{
+        width:36px; height:36px; border-radius:10px;
+        display:grid; place-items:center;
+        background:#90CAF9; color:#76b2e4; font-weight:900;
+        }
+        .brand-name{ font-weight:800; letter-spacing:.2px; }
+        .brand-desc{ color:#CFE3FF; font-size:13px; margin-top:4px; }
+
+        .footer-col h4{
+        margin:0 0 8px; font-size:14px; color:#B0D7FF; letter-spacing:.3px;
+        }
+        .footer-col ul{ list-style:none; margin:0; padding:0; display:grid; gap:6px; }
+
+        .footer-copy{
+        border-top:1px solid rgba(255,255,255,.18);
+        text-align:center; padding:10px 16px; font-size:12px; color:#CFE3FF;
+        }
+
+        @media (max-width: 840px){
+        .footer-inner{ grid-template-columns:1fr; }
+        }
   </style>
   <!-- 전역 카테고리 로드 -->
   <script src="/utils/categoryLists.js"></script>
@@ -196,6 +231,37 @@
     }
   })();
   </script>
+
+  <footer class="app-footer">
+      <div class="footer-inner">
+          <div class="footer-brand">
+              <div class="brand-mark">YS</div>
+                  <div class="brand-text">
+                      <div class="brand-name">YumSpot</div>
+                      <div class="brand-desc">리뷰 중심 맛집 커뮤니티. 가볍게 쓰고, 빠르게 찾자!</div>
+                  </div>
+              </div>
+
+              <div class="footer-col">
+              <h4>바로가기</h4>
+              <ul>
+                  <li><a href="regionreview.html">지역별</a></li>
+                  <li><a href="foodreview.html">음식</a></li>
+                  <li><a href="myreview.html">내 리뷰</a></li>
+              </ul>
+              </div>
+
+              <div class="footer-col">
+              <h4>정보</h4>
+              <ul>
+                  <li><a href="#">이용약관</a></li>
+                  <li><a href="#">개인정보처리방침</a></li>
+                  <li><a href="mailto:contact@yumspot.app">contact@yumspot.app</a></li>
+              </ul>
+          </div>
+      </div>
+      <div class="footer-copy">© 2025 YumSpot. All rights reserved.</div>
+  </footer>
 
 </body>
 </html>

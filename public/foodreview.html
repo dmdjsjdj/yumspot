@@ -21,48 +21,51 @@
     .empty { opacity:.4; }
     .meta { color:#555; font-size:12px; }
 
-        /* Footer */
-        .app-footer{
-        margin-top:40px; background:#76b2e4; color:#EAF4FF;
-        }
-        .app-footer a{ color:#EAF4FF; text-decoration:none; }
-        .app-footer a:hover{ text-decoration:underline; }
+    /* Footer */
+    .app-footer{
+    margin-top:40px; background:#76b2e4; color:#EAF4FF;
+    }
+    .app-footer a{ color:#EAF4FF; text-decoration:none; }
+    .app-footer a:hover{ text-decoration:underline; }
 
-        .footer-inner{
-        max-width: 1100px; margin:0 auto;
-        display:grid; grid-template-columns: 2fr 1fr 1fr;
-        gap:16px; padding:28px 16px;
-        }
-        .footer-brand{ display:flex; gap:12px; align-items:flex-start; }
-        .brand-mark{
-        width:36px; height:36px; border-radius:10px;
-        display:grid; place-items:center;
-        background:#90CAF9; color:#76b2e4; font-weight:900;
-        }
-        .brand-name{ font-weight:800; letter-spacing:.2px; }
-        .brand-desc{ color:#CFE3FF; font-size:13px; margin-top:4px; }
+    .footer-inner{
+    max-width: 1100px; margin:0 auto;
+    display:grid; grid-template-columns: 2fr 1fr 1fr;
+    gap:16px; padding:28px 16px;
+    }
+    .footer-brand{ display:flex; gap:12px; align-items:flex-start; }
+    .brand-mark{
+    width:36px; height:36px; border-radius:10px;
+    display:grid; place-items:center;
+    background:#90CAF9; color:#76b2e4; font-weight:900;
+    }
+    .brand-name{ font-weight:800; letter-spacing:.2px; }
+    .brand-desc{ color:#CFE3FF; font-size:13px; margin-top:4px; }
 
-        .footer-col h4{
-        margin:0 0 8px; font-size:14px; color:#B0D7FF; letter-spacing:.3px;
-        }
-        .footer-col ul{ list-style:none; margin:0; padding:0; display:grid; gap:6px; }
+    .footer-col h4{
+    margin:0 0 8px; font-size:14px; color:#B0D7FF; letter-spacing:.3px;
+    }
+    .footer-col ul{ list-style:none; margin:0; padding:0; display:grid; gap:6px; }
 
-        .footer-copy{
-        border-top:1px solid rgba(255,255,255,.18);
-        text-align:center; padding:10px 16px; font-size:12px; color:#CFE3FF;
-        }
+    .footer-copy{
+    border-top:1px solid rgba(255,255,255,.18);
+    text-align:center; padding:10px 16px; font-size:12px; color:#CFE3FF;
+    }
 
-        @media (max-width: 840px){
-        .footer-inner{ grid-template-columns:1fr; }
-        }
+    @media (max-width: 840px){
+    .footer-inner{ grid-template-columns:1fr; }
+    }
 
-        html, body { height: 100%; }           /* 전체 높이 확보 */
-        body {
-        min-height: 100vh;                   /* 뷰포트 꽉 채우기 */
-        display: flex;
-        flex-direction: column;
-        }
-        .content { flex: 1; } 
+    html, body { height: 100%; }           /* 전체 높이 확보 */
+    body {
+    min-height: 100vh;                   /* 뷰포트 꽉 채우기 */
+    display: flex;
+    flex-direction: column;
+    }
+    .content { flex: 1; } 
+
+    .review-grid { justify-items: stretch; } /* 그리드 아이템 좌측 정렬 느낌 */
+    .card { text-align: left; }              /* 카드 내부 텍스트 좌측 정렬 보장 */
   </style>
   <!-- 전역 카테고리 로드 -->
   <script src="/utils/categoryLists.js"></script>

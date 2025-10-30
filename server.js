@@ -239,7 +239,7 @@ app.get('/api/reviews/mine', requireLogin, async (req, res) => {
   }
 });
 
-// 최근 리뷰 3개 + 각 리뷰의 북마크 수 포함
+// 최근 리뷰 3개 + 북마크 수 (안정화)
 app.get('/api/reviews/recent', async (req, res) => {
   try {
     let q = supabase
@@ -248,32 +248,40 @@ app.get('/api/reviews/recent', async (req, res) => {
       .order('created_at', { ascending: false })
       .limit(3);
 
-    // 관리자만 숨김글 포함. 그 외는 hidden !== true (false 또는 null 포함)
+    // 관리자만 숨김글 포함 (관리자 아닌 경우 hidden !== true 만)
     if (!req.user || req.user.role !== 'admin') {
       q = q.not('hidden', 'is', true);
     }
 
-    // 3) 쿼리 실행
-    const { data: rows, error } = await q;
-    if (error) throw error;
+    const { data: rows, error: e1 } = await q;
+    if (e1) {
+      console.error('[recent] step1 reviews error:', e1);
+      throw e1;
+    }
 
-    const reviews = Array.isArray(rows) ? rows.slice() : [];
+    const reviews = Array.isArray(rows) ? rows : [];
     if (reviews.length === 0) return res.json([]);
 
-    // 2) 해당 리뷰들에 대한 북마크 수 집계
-    const ids = reviews.map(r => r.id);
-    const { data: bmRows, error: e2 } = await supabase
-      .from('bookmarks')
-      .select('review_id')
-      .in('review_id', ids);
-    if (e2) throw e2;
+    // --- 북마크 집계는 "부분 실패 허용" ---
+    let countMap = {};
+    try {
+      const ids = reviews.map(r => r.id);
+      const { data: bmRows, error: e2 } = await supabase
+        .from('bookmarks')
+        .select('review_id')
+        .in('review_id', ids);
 
-    const countMap = {};
-    (bmRows || []).forEach(r => {
-      countMap[r.review_id] = (countMap[r.review_id] || 0) + 1;
-    });
+      if (e2) throw e2;
 
-    // 3) bookmark_count 부착
+      (bmRows || []).forEach(r => {
+        countMap[r.review_id] = (countMap[r.review_id] || 0) + 1;
+      });
+    } catch (e) {
+      console.error('[recent] step2 bookmarks error (continue with zeros):', e);
+      // 북마크 집계 실패해도 리뷰 자체는 반환
+      countMap = {};
+    }
+
     const withCounts = reviews.map(r => ({
       ...r,
       bookmark_count: countMap[r.id] || 0,
@@ -281,7 +289,12 @@ app.get('/api/reviews/recent', async (req, res) => {
 
     return res.json(withCounts);
   } catch (err) {
-    console.error('[recent] error:', err);
+    // 여기서 환경변수 유무까지 같이 로깅
+    console.error('[recent] fatal:', err, {
+      SUPABASE_URL: !!process.env.SUPABASE_URL,
+      SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
+      NODE_ENV: process.env.NODE_ENV
+    });
     return res.status(500).json({ message: '조회 실패', detail: String(err?.message || err) });
   }
 });

@@ -29,6 +29,23 @@
     .state { padding:32px 0; color:#444; }
 
     .btn.secondary.active { background:#42A5F5; color:#fff; }
+
+    /* 카드 내 텍스트 공통 */
+    .card h3, .card p, .review-card h3, .review-card p {
+      overflow-wrap:anywhere;
+      word-break:break-word;
+      line-height:1.38;
+    }
+
+    /* 모바일 그리드 간격/패딩 조금 키우기 */
+    @media (max-width:480px){
+      .review-grid { gap:12px; }
+      .card { padding:14px; }
+      .rating { letter-spacing:.5px; }
+      .btn { min-height:40px; padding:10px 12px; }
+      .navbar { padding: 8px; }
+    }
+
   </style>
   <script src="/utils/categoryLists.js"></script>
 </head>
